@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use ash::{
     self,
     vk::{self, PhysicalDevice},
-    Instance, Device,
+    Device, Instance,
 };
 use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
@@ -11,28 +11,8 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-fn init_instance() -> Result<Instance> {
-    let entry = unsafe { ash::Entry::load() }?;
-    let application_info = vk::ApplicationInfo::builder()
-        .api_version(vk::API_VERSION_1_3)
-        .build();
-    let create_info = vk::InstanceCreateInfo::builder()
-        .application_info(&application_info)
-        .build();
-    let instance = unsafe { entry.create_instance(&create_info, None) }?;
-
-    Ok(instance)
-}
-
 fn destroy_instance(instance: Instance) {
     unsafe { instance.destroy_instance(None) }
-}
-
-fn get_device(instance: &Instance) -> Result<Device> {
-    let physical_device = unsafe { instance.enumerate_physical_devices() }?
-        .into_iter()
-        .next()
-        .context("No physical device found")?;
 }
 
 fn init_window() -> Result<Window> {
@@ -62,16 +42,29 @@ fn init_window() -> Result<Window> {
     Ok(window)
 }
 
-fn main() {
-    let instance = init_instance().unwrap();
+fn main() -> Result<()> {
+    let instance = {
+        let entry = unsafe { ash::Entry::load() }?;
+        let application_info = vk::ApplicationInfo::builder()
+            .api_version(vk::API_VERSION_1_3)
+            .build();
+        let create_info = vk::InstanceCreateInfo::builder()
+            .application_info(&application_info)
+            .build();
+        unsafe { entry.create_instance(&create_info, None) }?
+    };
 
-    {
-        let physical_device = get_physical_device(&instance).unwrap();
+    let device = {
+        let physical_device = unsafe { instance.enumerate_physical_devices() }?
+            .into_iter()
+            .next()
+            .context("No physical device found")?;
+        let create_info = vk::DeviceCreateInfo::builder().build();
+        unsafe { instance.create_device(physical_device, &create_info, None) }
+    }?;
 
-        {
-            let window = init_window().unwrap();
-        }
-    }
+    let window = init_window().unwrap();
 
     destroy_instance(instance);
+    Ok(())
 }
