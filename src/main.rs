@@ -1,50 +1,13 @@
 use anyhow::{Context, Result};
 use ash::{
     self,
-    vk::{self, PhysicalDevice},
-    Device, Instance,
+    vk::{self, DeviceQueueCreateInfo},
 };
-use winit::{
-    event::{ElementState, Event, KeyEvent, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    keyboard::{Key, NamedKey},
-    window::{Window, WindowBuilder},
-};
-
-fn destroy_instance(instance: Instance) {
-    unsafe { instance.destroy_instance(None) }
-}
-
-fn init_window() -> Result<Window> {
-    let event_loop = EventLoop::new()?;
-    let window = WindowBuilder::new().with_title("scop").build(&event_loop)?;
-
-    event_loop.set_control_flow(ControlFlow::Poll);
-
-    event_loop.run(move |event, elwt| match event {
-        Event::WindowEvent {
-            event:
-                WindowEvent::CloseRequested
-                | WindowEvent::KeyboardInput {
-                    event:
-                        KeyEvent {
-                            state: ElementState::Pressed,
-                            logical_key: Key::Named(NamedKey::Escape),
-                            ..
-                        },
-                    ..
-                },
-            ..
-        } => elwt.exit(),
-        _ => (),
-    })?;
-
-    Ok(window)
-}
 
 fn main() -> Result<()> {
+    let entry = unsafe { ash::Entry::load() }?;
+
     let instance = {
-        let entry = unsafe { ash::Entry::load() }?;
         let application_info = vk::ApplicationInfo::builder()
             .api_version(vk::API_VERSION_1_3)
             .build();
@@ -54,17 +17,38 @@ fn main() -> Result<()> {
         unsafe { entry.create_instance(&create_info, None) }?
     };
 
-    let device = {
-        let physical_device = unsafe { instance.enumerate_physical_devices() }?
+    let physical_device = unsafe { instance.enumerate_physical_devices() }?
+        .into_iter()
+        .next()
+        .context("No physical device found")?;
+
+    let queue_family_index =
+        unsafe { instance.get_physical_device_queue_family_properties(physical_device) }
             .into_iter()
-            .next()
-            .context("No physical device found")?;
-        let create_info = vk::DeviceCreateInfo::builder().build();
+            .enumerate()
+            .filter(|item| {
+                item.1.queue_flags.intersects(
+                    vk::QueueFlags::TRANSFER | vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE,
+                )
+            })
+            .max_by_key(|item| (item.1.queue_flags.as_raw().count_ones(), item.1.queue_count))
+            .context("No suitable queue family")?
+            .0 as u32;
+
+    let device = {
+        let queue_priorities = [1.0];
+        let queue_create_infos = [DeviceQueueCreateInfo::builder()
+            .queue_family_index(queue_family_index)
+            .queue_priorities(&queue_priorities)
+            .build()];
+        let create_info = vk::DeviceCreateInfo::builder()
+            .queue_create_infos(&queue_create_infos)
+            .build();
         unsafe { instance.create_device(physical_device, &create_info, None) }
     }?;
 
-    let window = init_window().unwrap();
+    let queue = unsafe { device.get_device_queue(0, 0) };
 
-    destroy_instance(instance);
+    unsafe { instance.destroy_instance(None) }
     Ok(())
 }
