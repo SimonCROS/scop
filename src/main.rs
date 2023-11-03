@@ -69,7 +69,7 @@ fn main() -> Result<()> {
     let buffer = {
         let create_info = BufferCreateInfo::builder()
             .size(value_count * std::mem::size_of::<i32>() as vk::DeviceSize)
-            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
+            .usage(vk::BufferUsageFlags::TRANSFER_DST)
             .build();
         unsafe { device.create_buffer(&create_info, None) }?
     };
