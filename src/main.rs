@@ -1,13 +1,13 @@
-use std::mem::size_of;
-
 use anyhow::{Context, Result};
 use ash::{
     self,
     vk::{
-        self, BufferCreateInfo, CommandBufferAllocateInfo, CommandPoolCreateFlags,
-        CommandPoolCreateInfo, DeviceQueueCreateInfo,
+        self, BufferCreateInfo, CommandBufferAllocateInfo, CommandBufferBeginInfo,
+        CommandBufferLevel, CommandPoolCreateInfo, DeviceQueueCreateInfo,
+        FenceCreateInfo, SubmitInfo,
     },
 };
+use gpu_allocator::{vulkan::*, MemoryLocation};
 
 fn main() -> Result<()> {
     let entry = unsafe { ash::Entry::load() }?;
@@ -52,7 +52,42 @@ fn main() -> Result<()> {
         unsafe { instance.create_device(physical_device, &create_info, None) }?
     };
 
-    // let queue = unsafe { device.get_device_queue(0, 0) };
+    let queue = unsafe { device.get_device_queue(0, 0) };
+
+    let mut allocator = Allocator::new(&AllocatorCreateDesc {
+        instance: instance.clone(),
+        device: device.clone(),
+        physical_device,
+        debug_settings: Default::default(),
+        buffer_device_address: true,
+        allocation_sizes: Default::default(),
+    })?;
+
+    let value_count = 16;
+    let value = 314;
+
+    let buffer = {
+        let create_info = BufferCreateInfo::builder()
+            .size(value_count * std::mem::size_of::<i32>() as vk::DeviceSize)
+            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
+            .build();
+        unsafe { device.create_buffer(&create_info, None) }?
+    };
+
+    let allocation = {
+        let buffer_memory_requirements = unsafe { device.get_buffer_memory_requirements(buffer) };
+        let allocation_create_desc = AllocationCreateDesc {
+            name: "Buffer allocation",
+            requirements: buffer_memory_requirements,
+            location: MemoryLocation::GpuToCpu,
+            linear: true,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+        };
+        let allocation = allocator.allocate(&allocation_create_desc)?;
+
+        unsafe { device.bind_buffer_memory(buffer, allocation.memory(), allocation.offset()) }?;
+        allocation
+    };
 
     let command_pool = {
         let create_info = CommandPoolCreateInfo::builder()
@@ -65,21 +100,64 @@ fn main() -> Result<()> {
         let allocate_info = CommandBufferAllocateInfo::builder()
             .command_pool(command_pool)
             .command_buffer_count(1)
+            .level(CommandBufferLevel::PRIMARY)
             .build();
         unsafe { device.allocate_command_buffers(&allocate_info) }?
     };
 
-    let buffer = {
-        let create_info = BufferCreateInfo::builder()
-            .size(16 * std::mem::size_of::<i32>() as vk::DeviceSize)
-            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
-            .build();
-        unsafe { device.create_buffer(&create_info, None) }?
+    let primary_command_buffer = command_buffers[0];
+
+    // Recording command buffer
+    {
+        let begin_info = CommandBufferBeginInfo::builder().build();
+        unsafe { device.begin_command_buffer(primary_command_buffer, &begin_info) }?;
+    }
+
+    unsafe {
+        device.cmd_fill_buffer(
+            primary_command_buffer,
+            buffer,
+            allocation.offset(),
+            allocation.size(),
+            value,
+        )
+    }
+
+    unsafe { device.end_command_buffer(primary_command_buffer) }?;
+
+    // Creating synchronization object
+    let fence = {
+        let create_info = FenceCreateInfo::builder().build();
+        unsafe { device.create_fence(&create_info, None) }?
     };
 
-    unsafe { device.destroy_buffer(buffer, None) }
-    unsafe { device.free_command_buffers(command_pool, &command_buffers) }
+    // Execute command buffer
+    {
+        let submit_info = SubmitInfo::builder()
+            .command_buffers(std::slice::from_ref(&primary_command_buffer))
+            .build();
+        unsafe { device.queue_submit(queue, std::slice::from_ref(&submit_info), fence) }?;
+    }
+
+    // Wait for the execution result
+    unsafe { device.wait_for_fences(std::slice::from_ref(&fence), true, u64::MAX) }?;
+
+    // Read Data
+    for value in allocation
+        .mapped_slice()
+        .context("Cannot access buffer from Host")?
+    {
+        println!("{}", value);
+    }
+
+    // Clean
+    unsafe { device.destroy_fence(fence, None) }
     unsafe { device.destroy_command_pool(command_pool, None) }
+
+    allocator.free(allocation)?;
+    unsafe { device.destroy_buffer(buffer, None) }
+    drop(allocator);
+
     unsafe { device.destroy_device(None) }
     unsafe { instance.destroy_instance(None) }
     Ok(())
