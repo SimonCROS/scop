@@ -1,3 +1,5 @@
+pub mod device;
+pub mod swapchain;
 pub mod window;
 
 use anyhow::Result;
@@ -11,14 +13,15 @@ pub struct Renderer {
     // pub main_device: RendererDevice,
     pub window: RendererWindow,
     // pub swapchain: RendererSwapchain,
-    pub render_pass: vk::RenderPass,
+    // pub render_pass: vk::RenderPass,
     // pub graphics_pipeline: RendererPipeline,
     // pub command_pools: CommandPools,
-    pub graphics_command_buffers: Vec<vk::CommandBuffer>,
+    // pub graphics_command_buffers: Vec<vk::CommandBuffer>,
 }
 
 impl Renderer {
     fn new(
+        window: RendererWindow,
         layer_name_pts: &Vec<*const i8>,
         extension_name_pts: &Vec<*const i8>,
     ) -> Result<Self> {
@@ -32,7 +35,10 @@ impl Renderer {
 
         let instance = unsafe { entry.create_instance(&instance_info, None)? };
 
-        
+        Ok(Self {
+            instance,
+            window,
+        })
     }
 
     /// Renders a frame for our Vulkan app.

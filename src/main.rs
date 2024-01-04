@@ -1,5 +1,4 @@
 mod renderer;
-mod window;
 
 use anyhow::Result;
 use renderer::Renderer;
