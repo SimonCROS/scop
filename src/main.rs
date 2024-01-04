@@ -1,8 +1,7 @@
 mod renderer;
 
 use anyhow::Result;
-use renderer::Renderer;
-use window::RendererWindow;
+use renderer::window::RendererWindow;
 use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::keyboard::{Key, NamedKey};
@@ -31,7 +30,7 @@ fn main() -> Result<()> {
         _ => (),
     })?;
     unsafe {
-        app.destroy();
+        // TODO cleanup
     }
     Ok(())
 }

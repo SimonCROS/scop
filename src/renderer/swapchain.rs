@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ash::{extensions::khr, vk, Instance};
 
-use super::window::RendererWindow;
+use super::{window::RendererWindow, device::RendererDevice};
 
 pub struct RendererSwapchain {
     pub swapchain: vk::SwapchainKHR,
