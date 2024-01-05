@@ -63,7 +63,7 @@ impl RendererDevice {
     ) -> VkResult<ash::Device> {
         let queue_priorities = [1.0f32];
 
-        let mut queue_create_infos: Vec<DeviceQueueCreateInfo> = queue_families
+        let queue_create_infos: Vec<DeviceQueueCreateInfo> = queue_families
             .iter()
             .map(|family| {
                 DeviceQueueCreateInfo::builder()
@@ -75,7 +75,7 @@ impl RendererDevice {
 
         let create_info = DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
-            .enabled_extension_names(&[ash::extensions::khr::Swapchain::name().as_ptr()]);
+            .enabled_extension_names(std::slice::from_ref(ash::extensions::khr::Swapchain::name().as_ptr()));
 
         unsafe { instance.create_device(physical_device, &create_info, None) }
     }

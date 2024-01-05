@@ -89,5 +89,11 @@ impl RendererSwapchain {
         })
     }
 
-    pub unsafe fn cleanup(&self) {}
+    pub unsafe fn cleanup(&self, device: RendererDevice) {
+        for image_view in &self.image_views {
+            device.logical_device.destroy_image_view(*image_view, None);
+        }
+
+        self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+    }
 }
