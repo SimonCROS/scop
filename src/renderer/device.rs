@@ -1,15 +1,23 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Error, Result};
 use ash::{
     prelude::VkResult,
-    vk::{self, DeviceQueueCreateInfo, PhysicalDevice},
-    Instance,
+    vk::{
+        DeviceCreateInfo, DeviceQueueCreateInfo, PhysicalDevice, PhysicalDeviceType, Queue,
+        QueueFlags,
+    },
+    Instance, {self},
 };
 
+pub struct QueueFamily {
+    pub index: u32,
+    pub flags: QueueFlags,
+    pub queues: Vec<Queue>,
+}
+
 pub struct RendererDevice {
-    pub physical_device: vk::PhysicalDevice,
+    pub physical_device: PhysicalDevice,
     pub logical_device: ash::Device,
-    pub graphics_queue: vk::Queue,
-    pub graphics_queue_family: u32,
+    queue_families: Vec<QueueFamily>,
 }
 
 impl RendererDevice {
@@ -21,7 +29,7 @@ impl RendererDevice {
         for physical_device in physical_devices {
             let props = unsafe { instance.get_physical_device_properties(physical_device) };
 
-            if props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU {
+            if props.device_type == PhysicalDeviceType::DISCRETE_GPU {
                 choosen = Some(physical_device)
             }
         }
@@ -29,52 +37,83 @@ impl RendererDevice {
         Ok(choosen)
     }
 
-    fn pick_queue_family(instance: &Instance, physical_device: vk::PhysicalDevice) -> Option<u32> {
+    fn pick_queue_families(
+        instance: &Instance,
+        physical_device: PhysicalDevice,
+    ) -> Vec<QueueFamily> {
         let props =
             unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
 
         props
             .into_iter()
-            .position(|qf| qf.queue_flags.contains(vk::QueueFlags::GRAPHICS))
-            .map(|i| i as u32)
+            .enumerate()
+            .filter(|(_, qf)| qf.queue_count > 0 && qf.queue_flags.contains(QueueFlags::GRAPHICS))
+            .map(|(i, qf)| QueueFamily {
+                index: i as u32,
+                flags: qf.queue_flags,
+                queues: vec![],
+            })
+            .collect()
     }
 
     fn create_logical_device(
         instance: &Instance,
-        physical_device: vk::PhysicalDevice,
-        graphics_queue_family: u32,
+        physical_device: PhysicalDevice,
+        queue_families: Vec<QueueFamily>,
     ) -> VkResult<ash::Device> {
         let queue_priorities = [1.0f32];
 
-        let queue_create_infos = [DeviceQueueCreateInfo::builder()
-            .queue_family_index(graphics_queue_family)
-            .queue_priorities(&queue_priorities)
-            .build()];
+        let mut queue_create_infos: Vec<DeviceQueueCreateInfo> = queue_families
+            .iter()
+            .map(|family| {
+                DeviceQueueCreateInfo::builder()
+                    .queue_family_index(family.index)
+                    .queue_priorities(&queue_priorities)
+                    .build()
+            })
+            .collect();
 
-        let create_info = vk::DeviceCreateInfo::builder().queue_create_infos(&queue_create_infos);
+        let create_info = DeviceCreateInfo::builder()
+            .queue_create_infos(&queue_create_infos)
+            .enabled_extension_names(&[ash::extensions::khr::Swapchain::name().as_ptr()]);
 
         unsafe { instance.create_device(physical_device, &create_info, None) }
     }
 
-    pub fn new(instance: &Instance, layer_pts: &Vec<*const i8>) -> Result<Self> {
+    pub fn new(instance: &Instance) -> Result<Self> {
         let physical_device =
             Self::pick_physical_device(instance)?.context("No physical device found")?;
 
-        let graphics_queue_family = Self::pick_queue_family(instance, physical_device)
-            .context("No suitable queue family")?;
+        let mut queue_families = Self::pick_queue_families(instance, physical_device);
+        if queue_families.is_empty() {
+            bail!("No suitable queue family found");
+        }
 
         let logical_device =
-            Self::create_logical_device(instance, physical_device, graphics_queue_family)?;
+            Self::create_logical_device(instance, physical_device, queue_families)?;
 
-        let graphics_queue = unsafe { logical_device.get_device_queue(graphics_queue_family, 0) };
+        queue_families.iter_mut().for_each(|family| {
+            family
+                .queues
+                .push(unsafe { logical_device.get_device_queue(family.index, 0) })
+        });
 
         Ok(Self {
             physical_device,
             logical_device,
-            graphics_queue,
-            graphics_queue_family,
+            queue_families,
         })
     }
 
-    pub unsafe fn cleanup(&self) {}
+    pub fn queue_family(&self, flags: QueueFlags) -> Option<&QueueFamily> {
+        self.queue_families.iter().find(|f| f.flags.contains(flags))
+    }
+
+    pub fn main_graphics_queue_family(&self) -> &QueueFamily {
+        self.queue_family(QueueFlags::GRAPHICS).unwrap()
+    }
+
+    pub unsafe fn cleanup(&self) {
+        self.logical_device.destroy_device(None);
+    }
 }

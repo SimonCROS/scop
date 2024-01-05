@@ -7,9 +7,6 @@ use winit::event_loop::ControlFlow;
 use winit::keyboard::{Key, NamedKey};
 
 fn main() -> Result<()> {
-    let (event_loop, window) = RendererWindow::create_window()?;
-    let used_extensions = ash_window::enumerate_required_extensions(window.raw_display_handle())?;
-
     // let mut renderer = unsafe { Renderer::new() }?;
     event_loop.set_control_flow(ControlFlow::Poll);
     event_loop.run(move |event, elwt| match event {

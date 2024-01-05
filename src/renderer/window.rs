@@ -51,6 +51,26 @@ impl RendererWindow {
         })
     }
 
+    pub fn capabilities(
+        &self,
+        physical_device: vk::PhysicalDevice,
+    ) -> Result<vk::SurfaceCapabilitiesKHR, vk::Result> {
+        unsafe {
+            self.surface_loader
+                .get_physical_device_surface_capabilities(physical_device, self.surface)
+        }
+    }
+
+    pub fn formats(
+        &self,
+        physical_device: vk::PhysicalDevice,
+    ) -> Result<Vec<vk::SurfaceFormatKHR>, vk::Result> {
+        unsafe {
+            self.surface_loader
+                .get_physical_device_surface_formats(physical_device, self.surface)
+        }
+    }
+
     pub unsafe fn cleanup(&self) {
         self.surface_loader.destroy_surface(self.surface, None);
     }
