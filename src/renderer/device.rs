@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, Context, Result};
 use ash::{
     prelude::VkResult,
     vk::{
@@ -59,7 +59,7 @@ impl RendererDevice {
     fn create_logical_device(
         instance: &Instance,
         physical_device: PhysicalDevice,
-        queue_families: Vec<QueueFamily>,
+        queue_families: &Vec<QueueFamily>,
     ) -> VkResult<ash::Device> {
         let queue_priorities = [1.0f32];
 
@@ -73,9 +73,11 @@ impl RendererDevice {
             })
             .collect();
 
+        let extensions = [ash::extensions::khr::Swapchain::name().as_ptr()];
+
         let create_info = DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
-            .enabled_extension_names(std::slice::from_ref(ash::extensions::khr::Swapchain::name().as_ptr()));
+            .enabled_extension_names(&extensions);
 
         unsafe { instance.create_device(physical_device, &create_info, None) }
     }
@@ -90,7 +92,7 @@ impl RendererDevice {
         }
 
         let logical_device =
-            Self::create_logical_device(instance, physical_device, queue_families)?;
+            Self::create_logical_device(instance, physical_device, &queue_families)?;
 
         queue_families.iter_mut().for_each(|family| {
             family

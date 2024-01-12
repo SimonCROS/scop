@@ -9,6 +9,11 @@ use ash::vk;
 
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
+use winit::{
+    event::{ElementState, Event, KeyEvent, WindowEvent},
+    event_loop::ControlFlow,
+    keyboard::{Key, NamedKey},
+};
 
 use self::device::RendererDevice;
 
@@ -25,7 +30,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let (event_loop, window) = RendererWindow::create_window()?;
 
         let entry = unsafe { ash::Entry::load() }?;
@@ -40,7 +45,36 @@ impl Renderer {
 
         let main_device = RendererDevice::new(&instance)?;
 
-        Ok(Self { instance, window, main_device })
+        Ok(Self {
+            instance,
+            window,
+            main_device,
+        })
+    }
+
+    pub fn run(&mut self) -> Result<()> {
+        // TODO Wrapper in window with close already set
+        let event_loop = self.window.acquire_event_loop()?;
+        event_loop.set_control_flow(ControlFlow::Poll);
+        event_loop.run(move |event, elwt| match event {
+            Event::WindowEvent {
+                event:
+                    WindowEvent::CloseRequested
+                    | WindowEvent::KeyboardInput {
+                        event:
+                            KeyEvent {
+                                state: ElementState::Pressed,
+                                logical_key: Key::Named(NamedKey::Escape),
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => elwt.exit(),
+            _ => (),
+        })?;
+
+        Ok(())
     }
 
     fn create_instance(

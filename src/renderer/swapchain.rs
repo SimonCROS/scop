@@ -28,9 +28,12 @@ impl RendererSwapchain {
 
         let capabilities = window.capabilities(device.physical_device)?;
 
-        let surface_format = window.formats(device.physical_device)?.first().unwrap();
+        let surface_formats = window.formats(device.physical_device)?;
+        let surface_format = surface_formats.first().unwrap();
 
         let swapchain_loader = Swapchain::new(instance, &device.logical_device);
+
+        let queue_family_indicies = [graphics_queue_family.index];
 
         let swapchain = {
             let swapchain_info = SwapchainCreateInfoKHR::builder()
@@ -44,7 +47,7 @@ impl RendererSwapchain {
                 .image_array_layers(1)
                 .image_usage(ImageUsageFlags::COLOR_ATTACHMENT)
                 .image_sharing_mode(SharingMode::EXCLUSIVE)
-                .queue_family_indices(&[graphics_queue_family.index])
+                .queue_family_indices(&queue_family_indicies)
                 .pre_transform(capabilities.current_transform)
                 .composite_alpha(CompositeAlphaFlagsKHR::OPAQUE)
                 .present_mode(PresentModeKHR::FIFO);

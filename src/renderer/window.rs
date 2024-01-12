@@ -8,7 +8,7 @@ use winit::{
 };
 
 pub struct RendererWindow {
-    pub event_loop: EventLoop<()>,
+    pub event_loop: Option<EventLoop<()>>,
     pub window: Window,
     pub surface: vk::SurfaceKHR,
     pub surface_loader: khr::Surface,
@@ -44,7 +44,7 @@ impl RendererWindow {
         let surface_loader = khr::Surface::new(entry, instance);
 
         Ok(Self {
-            event_loop,
+            event_loop: Some(event_loop),
             window,
             surface,
             surface_loader,
@@ -73,5 +73,12 @@ impl RendererWindow {
 
     pub unsafe fn cleanup(&self) {
         self.surface_loader.destroy_surface(self.surface, None);
+    }
+
+    pub fn acquire_event_loop(&mut self) -> Result<EventLoop<()>> {
+        match self.event_loop.take() {
+            None => anyhow::bail!("EventLoop was acquired before"),
+            Some(el) => Ok(el)
+        }
     }
 }
