@@ -34,7 +34,6 @@ impl Renderer {
         let (event_loop, window) = RendererWindow::create_window()?;
 
         let entry = unsafe { ash::Entry::load() }?;
-        let app_info = vk::ApplicationInfo::builder().api_version(vk::API_VERSION_1_3);
 
         let extension_name_pts =
             ash_window::enumerate_required_extensions(window.raw_display_handle())?;
