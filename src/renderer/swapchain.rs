@@ -1,11 +1,13 @@
+use core::slice;
+
 use anyhow::Result;
 use ash::{
     self,
     extensions::khr::{self, Swapchain},
     vk::{
-        CompositeAlphaFlagsKHR, Format, ImageAspectFlags, ImageSubresourceRange, ImageUsageFlags,
-        ImageView, ImageViewCreateInfo, ImageViewType, PresentModeKHR, SharingMode,
-        SwapchainCreateInfoKHR, SwapchainKHR,
+        self, CompositeAlphaFlagsKHR, Format, ImageAspectFlags, ImageSubresourceRange,
+        ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, PresentModeKHR,
+        SharingMode, SwapchainCreateInfoKHR, SwapchainKHR,
     },
     Instance,
 };
@@ -16,13 +18,15 @@ pub struct RendererSwapchain {
     pub swapchain: SwapchainKHR,
     pub swapchain_loader: khr::Swapchain,
     pub image_views: Vec<ImageView>,
+    pub framebuffers: Vec<vk::Framebuffer>,
+    pub extent: vk::Extent2D,
 }
 
 impl RendererSwapchain {
     pub fn new(
         instance: &Instance,
-        device: RendererDevice,
-        window: RendererWindow,
+        device: &RendererDevice,
+        window: &RendererWindow,
     ) -> Result<Self> {
         let graphics_queue_family = device.main_graphics_queue_family();
 
@@ -39,7 +43,7 @@ impl RendererSwapchain {
             let swapchain_info = SwapchainCreateInfoKHR::builder()
                 .surface(window.surface)
                 .min_image_count(
-                    3.clamp(capabilities.min_image_count, capabilities.max_image_count),
+                    3.max(capabilities.min_image_count).min(capabilities.max_image_count),
                 )
                 .image_format(surface_format.format)
                 .image_color_space(surface_format.color_space)
@@ -89,7 +93,36 @@ impl RendererSwapchain {
             swapchain,
             swapchain_loader,
             image_views,
+            framebuffers: vec![],
+            extent: capabilities.current_extent,
         })
+    }
+
+    pub fn create_framebuffers(
+        &mut self,
+        device: &RendererDevice,
+        render_pass: vk::RenderPass,
+    ) -> Result<()> {
+        self.framebuffers.reserve(self.image_views.len());
+
+        for image_view in &self.image_views {
+            let framebuffer_info = vk::FramebufferCreateInfo::builder()
+                .render_pass(render_pass)
+                .attachments(slice::from_ref(image_view))
+                .width(self.extent.width)
+                .height(self.extent.height)
+                .layers(1);
+
+            let framebuffer = unsafe {
+                device
+                    .logical_device
+                    .create_framebuffer(&framebuffer_info, None)
+            }?;
+
+            self.framebuffers.push(framebuffer);
+        }
+
+        Ok(())
     }
 
     pub unsafe fn cleanup(&self, device: RendererDevice) {
@@ -97,6 +130,7 @@ impl RendererSwapchain {
             device.logical_device.destroy_image_view(*image_view, None);
         }
 
-        self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+        self.swapchain_loader
+            .destroy_swapchain(self.swapchain, None);
     }
 }
