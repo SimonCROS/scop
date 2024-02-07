@@ -1,4 +1,7 @@
+pub mod command_pools;
 pub mod device;
+pub mod pipeline;
+pub mod shader;
 pub mod swapchain;
 pub mod window;
 
@@ -18,7 +21,7 @@ use winit::{
     keyboard::{Key, NamedKey},
 };
 
-use self::{device::RendererDevice, swapchain::RendererSwapchain};
+use self::{command_pools::CommandPools, device::RendererDevice, pipeline::RendererPipeline, swapchain::RendererSwapchain};
 
 pub struct Renderer {
     pub instance: ash::Instance,
@@ -26,10 +29,10 @@ pub struct Renderer {
     pub window: RendererWindow,
     pub main_device: RendererDevice,
     pub swapchain: RendererSwapchain,
-    // pub render_pass: vk::RenderPass,
-    // pub graphics_pipeline: RendererPipeline,
-    // pub command_pools: CommandPools,
-    // pub graphics_command_buffers: Vec<vk::CommandBuffer>,
+    pub render_pass: vk::RenderPass,
+    pub graphics_pipeline: RendererPipeline,
+    pub command_pools: CommandPools,
+    pub graphics_command_buffers: Vec<vk::CommandBuffer>,
 }
 
 impl Renderer {
@@ -66,12 +69,30 @@ impl Renderer {
         let mut swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
         swapchain.create_framebuffers(&main_device, render_pass)?;
 
-        Ok(Self {
+        let graphics_pipeline = RendererPipeline::new(&main_device, swapchain.extent, render_pass)?;
+
+        let command_pools = CommandPools::new(&main_device)?;
+
+        let graphics_command_buffers = CommandPools::create_command_buffers(
+            &main_device,
+            command_pools.graphics,
+            swapchain.framebuffers.len() as u32
+        )?;
+
+        let renderer = Self {
             instance,
-            window,
             main_device,
+            window,
             swapchain,
-        })
+            render_pass,
+            graphics_pipeline,
+            command_pools,
+            graphics_command_buffers,
+        };
+
+        renderer.fill_command_buffers()?;
+
+        Ok(renderer)
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -174,6 +195,57 @@ impl Renderer {
         }?;
 
         Ok(render_pass)
+    }
+
+    fn fill_command_buffers(&self) -> Result<()> {
+        for (i, &command_buffer) in self.graphics_command_buffers.iter().enumerate() {
+            let begin_info = vk::CommandBufferBeginInfo::builder();
+
+            unsafe {
+                self.main_device
+                    .logical_device
+                    .begin_command_buffer(command_buffer, &begin_info)?;
+            }
+
+            let clear_values = [vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 1.0],
+                },
+            }];
+
+            let render_pass_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(self.render_pass)
+                .framebuffer(self.swapchain.framebuffers[i])
+                .render_area(vk::Rect2D {
+                    offset: vk::Offset2D { x: 0, y: 0 },
+                    extent: self.swapchain.extent,
+                })
+                .clear_values(&clear_values);
+
+            unsafe {
+                self.main_device.logical_device.cmd_begin_render_pass(
+                    command_buffer,
+                    &render_pass_info,
+                    vk::SubpassContents::INLINE,
+                );
+
+                self.main_device.logical_device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.graphics_pipeline.pipeline,
+                );
+
+                self.main_device.logical_device.cmd_draw(command_buffer, 3, 1, 0, 0);
+
+                self.main_device.logical_device.cmd_end_render_pass(command_buffer);
+
+                self.main_device
+                    .logical_device
+                    .end_command_buffer(command_buffer)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Renders a frame for our Vulkan app.

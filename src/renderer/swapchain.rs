@@ -20,6 +20,11 @@ pub struct RendererSwapchain {
     pub image_views: Vec<ImageView>,
     pub framebuffers: Vec<vk::Framebuffer>,
     pub extent: vk::Extent2D,
+    pub image_available: Vec<vk::Semaphore>,
+    pub rendering_finished: Vec<vk::Semaphore>,
+    pub may_begin_drawing: Vec<vk::Fence>,
+    pub image_count: u32,
+    pub current_image: u32,
 }
 
 impl RendererSwapchain {
@@ -43,7 +48,8 @@ impl RendererSwapchain {
             let swapchain_info = SwapchainCreateInfoKHR::builder()
                 .surface(window.surface)
                 .min_image_count(
-                    3.max(capabilities.min_image_count).min(capabilities.max_image_count),
+                    3.max(capabilities.min_image_count)
+                        .min(capabilities.max_image_count),
                 )
                 .image_format(surface_format.format)
                 .image_color_space(surface_format.color_space)
@@ -89,12 +95,19 @@ impl RendererSwapchain {
             image_views.push(image_view);
         }
 
+        let image_count = image_views.len() as u32;
+
         Ok(RendererSwapchain {
             swapchain,
             swapchain_loader,
             image_views,
             framebuffers: vec![],
             extent: capabilities.current_extent,
+            image_available: vec![],
+            rendering_finished: vec![],
+            may_begin_drawing: vec![],
+            image_count,
+            current_image: 0,
         })
     }
 
@@ -125,7 +138,54 @@ impl RendererSwapchain {
         Ok(())
     }
 
-    pub unsafe fn cleanup(&self, device: RendererDevice) {
+    fn create_sync(&mut self, device: &RendererDevice) -> Result<()> {
+        let semaphore_info = vk::SemaphoreCreateInfo::builder();
+
+        let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+
+        for _ in 0..self.image_views.len() {
+            let semaphore_available = unsafe {
+                device
+                    .logical_device
+                    .create_semaphore(&semaphore_info, None)
+            }?;
+
+            let semaphore_finished = unsafe {
+                device
+                    .logical_device
+                    .create_semaphore(&semaphore_info, None)
+            }?;
+
+            self.image_available.push(semaphore_available);
+            self.rendering_finished.push(semaphore_finished);
+
+            let fence = unsafe { device.logical_device.create_fence(&fence_info, None) }?;
+
+            self.may_begin_drawing.push(fence);
+        }
+
+        Ok(())
+    }
+
+    pub unsafe fn cleanup(&self, device: &RendererDevice) {
+        for semaphore in &self.image_available {
+            device.logical_device.destroy_semaphore(*semaphore, None);
+        }
+
+        for semaphore in &self.rendering_finished {
+            device.logical_device.destroy_semaphore(*semaphore, None);
+        }
+
+        for fence in &self.may_begin_drawing {
+            device.logical_device.destroy_fence(*fence, None);
+        }
+
+        for framebuffer in &self.framebuffers {
+            device
+                .logical_device
+                .destroy_framebuffer(*framebuffer, None);
+        }
+
         for image_view in &self.image_views {
             device.logical_device.destroy_image_view(*image_view, None);
         }
