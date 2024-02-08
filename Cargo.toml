@@ -10,7 +10,6 @@ anyhow = "1.0.75"
 
 ash = "0.37.3"
 vk-shader-macros = "0.2.9"
-gpu-allocator = "0.23.0"
 
 raw-window-handle = "0.5"
 ash-window = "0.12.0"

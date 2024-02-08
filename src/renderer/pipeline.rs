@@ -1,9 +1,12 @@
-use std::ffi;
+use std::{
+    ffi,
+    mem::{self, offset_of},
+};
 
 use anyhow::Result;
 use ash::vk;
 
-use super::{device::RendererDevice, shader::Shader};
+use super::{device::RendererDevice, shader::Shader, vertex_buffer::Vertex};
 
 pub struct RendererPipeline {
     pub pipeline: vk::Pipeline,
@@ -32,7 +35,29 @@ impl RendererPipeline {
             frag.shader_stage(&entry_point),
         ];
 
-        let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder();
+        let vertex_input_attribute_descriptions = [
+            vk::VertexInputAttributeDescription {
+                location: 0,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, pos) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 1,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, color) as u32,
+            },
+        ];
+        let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: mem::size_of::<Vertex>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }];
+
+        let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
+            .vertex_binding_descriptions(&vertex_input_binding_descriptions);
 
         let (pipeline_layout, pipeline) = Self::create_graphics_pipeline(
             &device.logical_device,
@@ -122,9 +147,8 @@ impl RendererPipeline {
         // pipeline:
 
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder();
-        let pipeline_layout = unsafe {
-            device.create_pipeline_layout(&pipeline_layout_info, None)?
-        };
+        let pipeline_layout =
+            unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
 
         let pipeline_infos = [vk::GraphicsPipelineCreateInfo::builder()
             .stages(shader_stages)
@@ -140,11 +164,9 @@ impl RendererPipeline {
             .build()];
 
         let pipeline = unsafe {
-            device.create_graphics_pipelines(
-                vk::PipelineCache::null(),
-                &pipeline_infos,
-                None,
-            ).unwrap()
+            device
+                .create_graphics_pipelines(vk::PipelineCache::null(), &pipeline_infos, None)
+                .unwrap()
         }[0];
 
         Ok((pipeline_layout, pipeline))

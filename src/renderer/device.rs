@@ -1,11 +1,8 @@
 use anyhow::{bail, Context, Result};
 use ash::{
-    prelude::VkResult,
-    vk::{
-        DeviceCreateInfo, DeviceQueueCreateInfo, PhysicalDevice, PhysicalDeviceType, Queue,
-        QueueFlags,
-    },
-    Instance, {self},
+    self, prelude::VkResult, vk::{
+        self, DeviceCreateInfo, DeviceQueueCreateInfo, PhysicalDevice, PhysicalDeviceType, Queue, QueueFlags
+    }, Instance
 };
 
 pub struct QueueFamily {
@@ -17,6 +14,7 @@ pub struct QueueFamily {
 pub struct RendererDevice {
     pub physical_device: PhysicalDevice,
     pub logical_device: ash::Device,
+    pub memory_properties: vk::PhysicalDeviceMemoryProperties,
     queue_families: Vec<QueueFamily>,
 }
 
@@ -100,9 +98,12 @@ impl RendererDevice {
                 .push(unsafe { logical_device.get_device_queue(family.index, 0) })
         });
 
+        let device_memory_properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
+
         Ok(Self {
             physical_device,
             logical_device,
+            memory_properties: device_memory_properties,
             queue_families,
         })
     }

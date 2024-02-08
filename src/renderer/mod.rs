@@ -3,8 +3,10 @@ pub mod device;
 pub mod pipeline;
 pub mod shader;
 pub mod swapchain;
+pub mod vertex_buffer;
 pub mod window;
 
+use core::slice;
 use std::ffi::{self, c_char, CString};
 
 use anyhow::Result;
@@ -22,8 +24,11 @@ use winit::{
 };
 
 use self::{
-    command_pools::CommandPools, device::RendererDevice, pipeline::RendererPipeline,
+    command_pools::CommandPools,
+    device::RendererDevice,
+    pipeline::RendererPipeline,
     swapchain::RendererSwapchain,
+    vertex_buffer::{Vertex, VertexBuffer},
 };
 
 pub struct Renderer {
@@ -93,7 +98,7 @@ impl Renderer {
             graphics_command_buffers,
         };
 
-        renderer.fill_command_buffers()?;
+        // renderer.fill_command_buffers()?;
 
         Ok(renderer)
     }
@@ -102,6 +107,23 @@ impl Renderer {
         // TODO Wrapper in window with close already set
         let graphics_queue = self.main_device.main_graphics_queue_family().queues[0];
         let event_loop = self.window.acquire_event_loop()?;
+
+        let vertices = [
+            Vertex {
+                pos: [-1.0, 1.0, 0.0, 1.0],
+                color: [0.0, 1.0, 0.0, 1.0],
+            },
+            Vertex {
+                pos: [1.0, 1.0, 0.0, 1.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+            },
+            Vertex {
+                pos: [0.0, -1.0, 0.0, 1.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+        ];
+
+        let vertex_buffer = VertexBuffer::new(&self.main_device, &vertices)?;
 
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run(move |event, elwt| match event {
@@ -136,9 +158,11 @@ impl Renderer {
                         .unwrap()
                 };
 
+                let fence = self.swapchain.may_begin_drawing[self.swapchain.current_image];
+
                 // fences:
                 unsafe {
-                    let fences = [self.swapchain.may_begin_drawing[self.swapchain.current_image]];
+                    let fences = [fence];
 
                     self.main_device
                         .logical_device
@@ -157,23 +181,59 @@ impl Renderer {
                 let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
                 let semaphores_finished =
                     [self.swapchain.rendering_finished[self.swapchain.current_image]];
-                let command_buffers = [self.graphics_command_buffers[image_index as usize]];
+                let command_buffer = self.graphics_command_buffers[image_index as usize];
+
+                self.fill_command_buffer(command_buffer, |command_buffer| {
+                    let clear_values = [vk::ClearValue {
+                        color: vk::ClearColorValue {
+                            float32: [0.0, 0.0, 0.0, 1.0],
+                        },
+                    }];
+
+                    let render_pass_info = vk::RenderPassBeginInfo::builder()
+                        .render_pass(self.render_pass)
+                        .framebuffer(self.swapchain.framebuffers[self.swapchain.current_image])
+                        .render_area(vk::Rect2D {
+                            offset: vk::Offset2D { x: 0, y: 0 },
+                            extent: self.swapchain.extent,
+                        })
+                        .clear_values(&clear_values);
+
+                    unsafe {
+                        self.main_device.logical_device.cmd_begin_render_pass(
+                            command_buffer,
+                            &render_pass_info,
+                            vk::SubpassContents::INLINE,
+                        );
+
+                        self.main_device.logical_device.cmd_bind_pipeline(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.graphics_pipeline.pipeline,
+                        );
+
+                        self.main_device
+                            .logical_device
+                            .cmd_bind_vertex_buffers(command_buffer, 0, &[vertex_buffer.buffer], &[0]);
+
+                        self.main_device
+                            .logical_device
+                            .cmd_end_render_pass(command_buffer);
+                    }
+                })
+                .unwrap();
 
                 let submit_info = [vk::SubmitInfo::builder()
                     .wait_semaphores(&semaphores_available)
                     .wait_dst_stage_mask(&waiting_stages)
-                    .command_buffers(&command_buffers)
+                    .command_buffers(&[command_buffer])
                     .signal_semaphores(&semaphores_finished)
                     .build()];
 
                 unsafe {
                     self.main_device
                         .logical_device
-                        .queue_submit(
-                            graphics_queue,
-                            &submit_info,
-                            self.swapchain.may_begin_drawing[self.swapchain.current_image],
-                        )
+                        .queue_submit(graphics_queue, &submit_info, fence)
                         .unwrap();
                 };
 
@@ -276,56 +336,21 @@ impl Renderer {
         Ok(render_pass)
     }
 
-    fn fill_command_buffers(&self) -> Result<()> {
-        for (i, &command_buffer) in self.graphics_command_buffers.iter().enumerate() {
-            let begin_info = vk::CommandBufferBeginInfo::builder();
+    fn fill_command_buffer<F: FnOnce(vk::CommandBuffer)>(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        f: F,
+    ) -> Result<()> {
+        let begin_info = vk::CommandBufferBeginInfo::builder();
 
-            unsafe {
-                self.main_device
-                    .logical_device
-                    .begin_command_buffer(command_buffer, &begin_info)
-            }?;
-
-            let clear_values = [vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            }];
-
-            let render_pass_info = vk::RenderPassBeginInfo::builder()
-                .render_pass(self.render_pass)
-                .framebuffer(self.swapchain.framebuffers[i])
-                .render_area(vk::Rect2D {
-                    offset: vk::Offset2D { x: 0, y: 0 },
-                    extent: self.swapchain.extent,
-                })
-                .clear_values(&clear_values);
-
-            unsafe {
-                self.main_device.logical_device.cmd_begin_render_pass(
-                    command_buffer,
-                    &render_pass_info,
-                    vk::SubpassContents::INLINE,
-                );
-
-                self.main_device.logical_device.cmd_bind_pipeline(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.graphics_pipeline.pipeline,
-                );
-
-                self.main_device
-                    .logical_device
-                    .cmd_draw(command_buffer, 3, 1, 0, 0);
-
-                self.main_device
-                    .logical_device
-                    .cmd_end_render_pass(command_buffer);
-
-                self.main_device
-                    .logical_device
-                    .end_command_buffer(command_buffer)?;
-            }
+        unsafe {
+            self.main_device
+                .logical_device
+                .begin_command_buffer(command_buffer, &begin_info)?;
+            f(command_buffer);
+            self.main_device
+                .logical_device
+                .end_command_buffer(command_buffer)?;
         }
 
         Ok(())
