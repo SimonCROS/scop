@@ -4,13 +4,15 @@ use std::{
 };
 
 use anyhow::Result;
-use ash::vk;
+use ash::vk::{self, Viewport};
 
 use super::{device::RendererDevice, shader::Shader, vertex_buffer::Vertex};
 
 pub struct RendererPipeline {
     pub pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
+    pub viewports: [vk::Viewport; 1],
+    pub scissors: [vk::Rect2D; 1],
 }
 
 impl RendererPipeline {
@@ -59,7 +61,7 @@ impl RendererPipeline {
             .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
             .vertex_binding_descriptions(&vertex_input_binding_descriptions);
 
-        let (pipeline_layout, pipeline) = Self::create_graphics_pipeline(
+        let (pipeline_layout, pipeline, viewports, scissors) = Self::create_graphics_pipeline(
             &device.logical_device,
             render_pass,
             extent,
@@ -75,6 +77,8 @@ impl RendererPipeline {
         Ok(RendererPipeline {
             pipeline,
             pipeline_layout,
+            viewports,
+            scissors
         })
     }
 
@@ -84,7 +88,7 @@ impl RendererPipeline {
         extent: vk::Extent2D,
         vertex_input_info: vk::PipelineVertexInputStateCreateInfoBuilder,
         shader_stages: &[vk::PipelineShaderStageCreateInfo],
-    ) -> Result<(vk::PipelineLayout, vk::Pipeline)> {
+    ) -> Result<(vk::PipelineLayout, vk::Pipeline, [vk::Viewport; 1], [vk::Rect2D; 1])> {
         // input:
 
         let input_assembly_info = vk::PipelineInputAssemblyStateCreateInfo::builder()
@@ -169,7 +173,7 @@ impl RendererPipeline {
                 .unwrap()
         }[0];
 
-        Ok((pipeline_layout, pipeline))
+        Ok((pipeline_layout, pipeline, viewports, scissors))
     }
 
     pub unsafe fn cleanup(&self, device: &ash::Device) {
