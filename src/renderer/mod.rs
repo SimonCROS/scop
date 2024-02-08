@@ -283,8 +283,8 @@ impl Renderer {
             unsafe {
                 self.main_device
                     .logical_device
-                    .begin_command_buffer(command_buffer, &begin_info)?;
-            }
+                    .begin_command_buffer(command_buffer, &begin_info)
+            }?;
 
             let clear_values = [vk::ClearValue {
                 color: vk::ClearColorValue {

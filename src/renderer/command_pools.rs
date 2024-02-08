@@ -18,8 +18,8 @@ impl CommandPools {
         let graphics_command_pool = unsafe {
             device
                 .logical_device
-                .create_command_pool(&graphics_command_pool_info, None)?
-        };
+                .create_command_pool(&graphics_command_pool_info, None)
+        }?;
 
         Ok(CommandPools {
             graphics: graphics_command_pool,
