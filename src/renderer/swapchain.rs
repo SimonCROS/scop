@@ -85,7 +85,7 @@ impl RendererSwapchain {
                 let image_view_info = ImageViewCreateInfo::builder()
                     .image(image)
                     .view_type(ImageViewType::TYPE_2D)
-                    .format(Format::R8G8B8A8_UNORM)
+                    .format(surface_format.format)
                     .subresource_range(subresource_range);
 
                 unsafe {
