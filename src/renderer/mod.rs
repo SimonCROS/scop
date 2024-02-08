@@ -16,12 +16,15 @@ use ash::{
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
 use winit::{
-    event::{ElementState, Event, KeyEvent, WindowEvent},
+    event::{ElementState, Event, KeyEvent, StartCause, WindowEvent},
     event_loop::ControlFlow,
     keyboard::{Key, NamedKey},
 };
 
-use self::{command_pools::CommandPools, device::RendererDevice, pipeline::RendererPipeline, swapchain::RendererSwapchain};
+use self::{
+    command_pools::CommandPools, device::RendererDevice, pipeline::RendererPipeline,
+    swapchain::RendererSwapchain,
+};
 
 pub struct Renderer {
     pub instance: ash::Instance,
@@ -76,7 +79,7 @@ impl Renderer {
         let graphics_command_buffers = CommandPools::create_command_buffers(
             &main_device,
             command_pools.graphics,
-            swapchain.framebuffers.len() as u32
+            swapchain.framebuffers.len() as u32,
         )?;
 
         let renderer = Self {
@@ -97,7 +100,9 @@ impl Renderer {
 
     pub fn run(&mut self) -> Result<()> {
         // TODO Wrapper in window with close already set
+        let graphics_queue = self.main_device.main_graphics_queue_family().queues[0];
         let event_loop = self.window.acquire_event_loop()?;
+
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run(move |event, elwt| match event {
             Event::WindowEvent {
@@ -114,6 +119,80 @@ impl Renderer {
                     },
                 ..
             } => elwt.exit(),
+            Event::NewEvents(StartCause::Poll) => {
+                // acquiring next image:
+                self.swapchain.current_image =
+                    (self.swapchain.current_image + 1) % self.swapchain.image_count;
+
+                let (image_index, _) = unsafe {
+                    self.swapchain
+                        .swapchain_loader
+                        .acquire_next_image(
+                            self.swapchain.swapchain,
+                            u64::MAX,
+                            self.swapchain.image_available[self.swapchain.current_image],
+                            vk::Fence::null(),
+                        )
+                        .unwrap()
+                };
+
+                // fences:
+                unsafe {
+                    let fences = [self.swapchain.may_begin_drawing[self.swapchain.current_image]];
+
+                    self.main_device
+                        .logical_device
+                        .wait_for_fences(&fences, true, u64::MAX)
+                        .unwrap();
+
+                    self.main_device
+                        .logical_device
+                        .reset_fences(&fences)
+                        .unwrap();
+                };
+
+                // submit:
+                let semaphores_available =
+                    [self.swapchain.image_available[self.swapchain.current_image]];
+                let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+                let semaphores_finished =
+                    [self.swapchain.rendering_finished[self.swapchain.current_image]];
+                let command_buffers = [self.graphics_command_buffers[image_index as usize]];
+
+                let submit_info = [vk::SubmitInfo::builder()
+                    .wait_semaphores(&semaphores_available)
+                    .wait_dst_stage_mask(&waiting_stages)
+                    .command_buffers(&command_buffers)
+                    .signal_semaphores(&semaphores_finished)
+                    .build()];
+
+                unsafe {
+                    self.main_device
+                        .logical_device
+                        .queue_submit(
+                            graphics_queue,
+                            &submit_info,
+                            self.swapchain.may_begin_drawing[self.swapchain.current_image],
+                        )
+                        .unwrap();
+                };
+
+                // present:
+                let swapchains = [self.swapchain.swapchain];
+                let indices = [image_index];
+
+                let present_info = vk::PresentInfoKHR::builder()
+                    .wait_semaphores(&semaphores_finished)
+                    .swapchains(&swapchains)
+                    .image_indices(&indices);
+
+                unsafe {
+                    self.swapchain
+                        .swapchain_loader
+                        .queue_present(graphics_queue, &present_info)
+                        .unwrap();
+                };
+            }
             _ => (),
         })?;
 
@@ -235,9 +314,13 @@ impl Renderer {
                     self.graphics_pipeline.pipeline,
                 );
 
-                self.main_device.logical_device.cmd_draw(command_buffer, 3, 1, 0, 0);
+                self.main_device
+                    .logical_device
+                    .cmd_draw(command_buffer, 3, 1, 0, 0);
 
-                self.main_device.logical_device.cmd_end_render_pass(command_buffer);
+                self.main_device
+                    .logical_device
+                    .cmd_end_render_pass(command_buffer);
 
                 self.main_device
                     .logical_device

@@ -23,8 +23,8 @@ pub struct RendererSwapchain {
     pub image_available: Vec<vk::Semaphore>,
     pub rendering_finished: Vec<vk::Semaphore>,
     pub may_begin_drawing: Vec<vk::Fence>,
-    pub image_count: u32,
-    pub current_image: u32,
+    pub image_count: usize,
+    pub current_image: usize,
 }
 
 impl RendererSwapchain {
@@ -45,12 +45,15 @@ impl RendererSwapchain {
         let queue_family_indicies = [graphics_queue_family.index];
 
         let swapchain = {
+            let min_image_count = if capabilities.max_image_count > 0 {
+                3.min(capabilities.max_image_count)
+            } else {
+                3.max(capabilities.min_image_count)
+            };
+
             let swapchain_info = SwapchainCreateInfoKHR::builder()
                 .surface(window.surface)
-                .min_image_count(
-                    3.max(capabilities.min_image_count)
-                        .min(capabilities.max_image_count),
-                )
+                .min_image_count(min_image_count)
                 .image_format(surface_format.format)
                 .image_color_space(surface_format.color_space)
                 .image_extent(capabilities.current_extent)
@@ -95,9 +98,9 @@ impl RendererSwapchain {
             image_views.push(image_view);
         }
 
-        let image_count = image_views.len() as u32;
+        let image_count = image_views.len();
 
-        Ok(RendererSwapchain {
+        let mut swapchain = RendererSwapchain {
             swapchain,
             swapchain_loader,
             image_views,
@@ -108,7 +111,11 @@ impl RendererSwapchain {
             may_begin_drawing: vec![],
             image_count,
             current_image: 0,
-        })
+        };
+
+        swapchain.create_sync(device)?;
+
+        Ok(swapchain)
     }
 
     pub fn create_framebuffers(
