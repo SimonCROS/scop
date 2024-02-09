@@ -161,6 +161,10 @@ impl Renderer {
                             &[vertex_buffer.buffer],
                             &[0],
                         );
+
+                        self.main_device
+                            .logical_device
+                            .cmd_draw(command_buffer, 3, 1, 0, 0);
                     },
                 );
             })
