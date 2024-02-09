@@ -27,7 +27,7 @@ impl RendererDevice {
         for physical_device in physical_devices {
             let props = unsafe { instance.get_physical_device_properties(physical_device) };
 
-            if props.device_type == PhysicalDeviceType::DISCRETE_GPU {
+            if props.device_type == PhysicalDeviceType::DISCRETE_GPU || props.device_type == PhysicalDeviceType::INTEGRATED_GPU {
                 choosen = Some(physical_device)
             }
         }

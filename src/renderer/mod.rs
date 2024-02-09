@@ -221,6 +221,10 @@ impl Renderer {
 
                         self.main_device
                             .logical_device
+                            .cmd_draw(command_buffer, 3, 1, 0, 0);
+
+                        self.main_device
+                            .logical_device
                             .cmd_end_render_pass(command_buffer);
                     }
                 })
