@@ -1,35 +1,26 @@
 use core::slice;
 
 use anyhow::Result;
-use ash::{
-    self,
-    extensions::khr::{self, Swapchain},
-    vk::{
-        self, CompositeAlphaFlagsKHR, Format, ImageAspectFlags, ImageSubresourceRange,
-        ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, PresentModeKHR,
-        SharingMode, SwapchainCreateInfoKHR, SwapchainKHR,
-    },
-    Instance,
-};
+use ash::{extensions, vk};
 
 use super::{device::RendererDevice, window::RendererWindow};
 
 pub struct RendererSwapchain {
-    pub swapchain: SwapchainKHR,
-    pub swapchain_loader: khr::Swapchain,
-    pub image_views: Vec<ImageView>,
-    pub framebuffers: Vec<vk::Framebuffer>,
+    pub swapchain: vk::SwapchainKHR,
+    pub swapchain_loader: extensions::khr::Swapchain,
+    pub image_views: Vec<vk::ImageView>,
     pub extent: vk::Extent2D,
-    pub image_available: Vec<vk::Semaphore>,
-    pub rendering_finished: Vec<vk::Semaphore>,
-    pub may_begin_drawing: Vec<vk::Fence>,
     pub image_count: usize,
-    pub current_image: usize,
+    framebuffers: Vec<vk::Framebuffer>,
+    image_available: Vec<vk::Semaphore>,
+    rendering_finished: Vec<vk::Semaphore>,
+    may_begin_drawing: Vec<vk::Fence>,
+    current_image: usize,
 }
 
 impl RendererSwapchain {
     pub fn new(
-        instance: &Instance,
+        instance: &ash::Instance,
         device: &RendererDevice,
         window: &RendererWindow,
     ) -> Result<Self> {
@@ -40,7 +31,7 @@ impl RendererSwapchain {
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.first().unwrap();
 
-        let swapchain_loader = Swapchain::new(instance, &device.logical_device);
+        let swapchain_loader = extensions::khr::Swapchain::new(instance, &device.logical_device);
 
         let queue_family_indicies = [graphics_queue_family.index];
 
@@ -51,19 +42,19 @@ impl RendererSwapchain {
                 3.max(capabilities.min_image_count)
             };
 
-            let swapchain_info = SwapchainCreateInfoKHR::builder()
+            let swapchain_info = vk::SwapchainCreateInfoKHR::builder()
                 .surface(window.surface)
                 .min_image_count(min_image_count)
                 .image_format(surface_format.format)
                 .image_color_space(surface_format.color_space)
                 .image_extent(capabilities.current_extent)
                 .image_array_layers(1)
-                .image_usage(ImageUsageFlags::COLOR_ATTACHMENT)
-                .image_sharing_mode(SharingMode::EXCLUSIVE)
+                .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
                 .queue_family_indices(&queue_family_indicies)
                 .pre_transform(capabilities.current_transform)
-                .composite_alpha(CompositeAlphaFlagsKHR::OPAQUE)
-                .present_mode(PresentModeKHR::FIFO);
+                .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+                .present_mode(vk::PresentModeKHR::FIFO);
 
             unsafe { swapchain_loader.create_swapchain(&swapchain_info, None) }?
         };
@@ -74,17 +65,17 @@ impl RendererSwapchain {
 
         for image in images {
             let image_view = {
-                let subresource_range = ImageSubresourceRange::builder()
-                    .aspect_mask(ImageAspectFlags::COLOR)
+                let subresource_range = vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
                     .base_mip_level(0)
                     .level_count(1)
                     .base_array_layer(0)
                     .layer_count(1)
                     .build();
 
-                let image_view_info = ImageViewCreateInfo::builder()
+                let image_view_info = vk::ImageViewCreateInfo::builder()
                     .image(image)
-                    .view_type(ImageViewType::TYPE_2D)
+                    .view_type(vk::ImageViewType::TYPE_2D)
                     .format(surface_format.format)
                     .subresource_range(subresource_range);
 
@@ -143,6 +134,43 @@ impl RendererSwapchain {
         }
 
         Ok(())
+    }
+
+    pub unsafe fn next_image(
+        &mut self,
+        device: &RendererDevice,
+    ) -> Result<(u32, vk::Semaphore, vk::Semaphore, vk::Fence, vk::Framebuffer)> {
+        let image_available = &self.image_available[self.current_image];
+        let rendering_finished = &self.rendering_finished[self.current_image];
+        let may_begin_drawing = &self.may_begin_drawing[self.current_image];
+        let framebuffer = &self.framebuffers[self.current_image];
+
+        let (image_index, _) = self.swapchain_loader.acquire_next_image(
+            self.swapchain,
+            std::u64::MAX,
+            *image_available,
+            vk::Fence::null(),
+        )?;
+
+        device.logical_device.wait_for_fences(
+            slice::from_ref(may_begin_drawing),
+            true,
+            std::u64::MAX,
+        )?;
+
+        device
+            .logical_device
+            .reset_fences(slice::from_ref(may_begin_drawing))?;
+
+        self.current_image = (self.current_image + 1) % self.image_count;
+
+        Ok((
+            image_index,
+            *image_available,
+            *rendering_finished,
+            *may_begin_drawing,
+            *framebuffer,
+        ))
     }
 
     fn create_sync(&mut self, device: &RendererDevice) -> Result<()> {

@@ -84,7 +84,7 @@ impl Renderer {
         let graphics_command_buffers = CommandPools::create_command_buffers(
             &main_device,
             command_pools.graphics,
-            swapchain.framebuffers.len() as u32,
+            swapchain.image_count as u32,
         )?;
 
         let renderer = Self {
@@ -143,44 +143,11 @@ impl Renderer {
             } => elwt.exit(),
             Event::NewEvents(StartCause::Poll) => {
                 // acquiring next image:
-                self.swapchain.current_image =
-                    (self.swapchain.current_image + 1) % self.swapchain.image_count;
-
-                let (image_index, _) = unsafe {
-                    self.swapchain
-                        .swapchain_loader
-                        .acquire_next_image(
-                            self.swapchain.swapchain,
-                            u64::MAX,
-                            self.swapchain.image_available[self.swapchain.current_image],
-                            vk::Fence::null(),
-                        )
-                        .unwrap()
-                };
-
-                let fence = self.swapchain.may_begin_drawing[self.swapchain.current_image];
-
-                // fences:
-                unsafe {
-                    let fences = [fence];
-
-                    self.main_device
-                        .logical_device
-                        .wait_for_fences(&fences, true, u64::MAX)
-                        .unwrap();
-
-                    self.main_device
-                        .logical_device
-                        .reset_fences(&fences)
-                        .unwrap();
-                };
+                let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
+                    unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
 
                 // submit:
-                let semaphores_available =
-                    [self.swapchain.image_available[self.swapchain.current_image]];
                 let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-                let semaphores_finished =
-                    [self.swapchain.rendering_finished[self.swapchain.current_image]];
                 let command_buffer = self.graphics_command_buffers[image_index as usize];
 
                 self.fill_command_buffer(command_buffer, |command_buffer| {
@@ -192,7 +159,7 @@ impl Renderer {
 
                     let render_pass_info = vk::RenderPassBeginInfo::builder()
                         .render_pass(self.render_pass)
-                        .framebuffer(self.swapchain.framebuffers[self.swapchain.current_image])
+                        .framebuffer(framebuffer)
                         .render_area(vk::Rect2D {
                             offset: vk::Offset2D { x: 0, y: 0 },
                             extent: self.swapchain.extent,
@@ -212,12 +179,23 @@ impl Renderer {
                             self.graphics_pipeline.pipeline,
                         );
 
-                        self.main_device.logical_device.cmd_set_viewport(command_buffer, 0, &self.graphics_pipeline.viewports);
-                        self.main_device.logical_device.cmd_set_scissor(command_buffer, 0, &self.graphics_pipeline.scissors);
+                        self.main_device.logical_device.cmd_set_viewport(
+                            command_buffer,
+                            0,
+                            &self.graphics_pipeline.viewports,
+                        );
+                        self.main_device.logical_device.cmd_set_scissor(
+                            command_buffer,
+                            0,
+                            &self.graphics_pipeline.scissors,
+                        );
 
-                        self.main_device
-                            .logical_device
-                            .cmd_bind_vertex_buffers(command_buffer, 0, &[vertex_buffer.buffer], &[0]);
+                        self.main_device.logical_device.cmd_bind_vertex_buffers(
+                            command_buffer,
+                            0,
+                            &[vertex_buffer.buffer],
+                            &[0],
+                        );
 
                         self.main_device
                             .logical_device
@@ -231,25 +209,30 @@ impl Renderer {
                 .unwrap();
 
                 let submit_info = [vk::SubmitInfo::builder()
-                    .wait_semaphores(&semaphores_available)
+                    .wait_semaphores(&[image_available])
                     .wait_dst_stage_mask(&waiting_stages)
                     .command_buffers(&[command_buffer])
-                    .signal_semaphores(&semaphores_finished)
+                    .signal_semaphores(&[rendering_finished])
                     .build()];
 
                 unsafe {
                     self.main_device
                         .logical_device
-                        .queue_submit(graphics_queue, &submit_info, fence)
+                        .queue_submit(
+                            graphics_queue,
+                            &submit_info,
+                            may_begin_drawing,
+                        )
                         .unwrap();
                 };
 
                 // present:
                 let swapchains = [self.swapchain.swapchain];
                 let indices = [image_index];
+                let semaphore_finished = &[rendering_finished];
 
                 let present_info = vk::PresentInfoKHR::builder()
-                    .wait_semaphores(&semaphores_finished)
+                    .wait_semaphores(semaphore_finished)
                     .swapchains(&swapchains)
                     .image_indices(&indices);
 
