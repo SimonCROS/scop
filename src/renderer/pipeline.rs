@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use ash::vk::{self, Viewport};
+use ash::vk;
 
 use super::{device::RendererDevice, shader::Shader, vertex_buffer::Vertex};
 

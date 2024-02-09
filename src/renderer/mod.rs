@@ -98,8 +98,6 @@ impl Renderer {
             graphics_command_buffers,
         };
 
-        // renderer.fill_command_buffers()?;
-
         Ok(renderer)
     }
 
@@ -114,6 +112,30 @@ impl Renderer {
             Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 0.0, 1.0, 1.0],
+            },
+            Vertex {
+                pos: [0.0, -1.0, 0.0, 1.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+            Vertex {
+                pos: [1.0, -1.0, 0.0, 1.0],
+                color: [0.0, 1.0, 0.0, 1.0],
+            },
+            Vertex {
+                pos: [1.0, 1.0, 0.0, 1.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+            },
+            Vertex {
+                pos: [0.0, -1.0, 0.0, 1.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+            Vertex {
+                pos: [-1.0, -1.0, 0.0, 1.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+            },
+            Vertex {
+                pos: [-1.0, 1.0, 0.0, 1.0],
+                color: [0.0, 1.0, 0.0, 1.0],
             },
             Vertex {
                 pos: [0.0, -1.0, 0.0, 1.0],
@@ -164,43 +186,21 @@ impl Renderer {
 
                         self.main_device
                             .logical_device
-                            .cmd_draw(command_buffer, 3, 1, 0, 0);
+                            .cmd_draw(command_buffer, 9, 1, 0, 0);
                     },
                 );
             })
             .unwrap();
 
-            let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-            let submit_info = [vk::SubmitInfo::builder()
-                .wait_semaphores(&[image_available])
-                .wait_dst_stage_mask(&waiting_stages)
-                .command_buffers(&[command_buffer])
-                .signal_semaphores(&[rendering_finished])
-                .build()];
+            self.submit_command_buffer(
+                graphics_queue,
+                command_buffer,
+                image_available,
+                rendering_finished,
+                may_begin_drawing,
+            );
 
-            unsafe {
-                self.main_device
-                    .logical_device
-                    .queue_submit(graphics_queue, &submit_info, may_begin_drawing)
-                    .unwrap();
-            };
-
-            // present:
-            let swapchains = [self.swapchain.swapchain];
-            let indices = [image_index];
-            let semaphore_finished = &[rendering_finished];
-
-            let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(semaphore_finished)
-                .swapchains(&swapchains)
-                .image_indices(&indices);
-
-            unsafe {
-                self.swapchain
-                    .swapchain_loader
-                    .queue_present(graphics_queue, &present_info)
-                    .unwrap();
-            };
+            self.present_command_buffer(graphics_queue, image_index, rendering_finished);
         })?;
 
         Ok(())
@@ -301,6 +301,55 @@ impl Renderer {
         }
 
         Ok(())
+    }
+
+    fn submit_command_buffer(
+        &self,
+        queue: vk::Queue,
+        command_buffer: vk::CommandBuffer,
+        image_available: vk::Semaphore,
+        rendering_finished: vk::Semaphore,
+        may_begin_drawing: vk::Fence,
+    ) {
+        let wait_semaphores = [image_available];
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let command_buffers = [command_buffer];
+        let signal_semaphores = [rendering_finished];
+
+        let submit_info = vk::SubmitInfo::builder()
+            .wait_semaphores(&wait_semaphores)
+            .wait_dst_stage_mask(&wait_stages)
+            .command_buffers(&command_buffers)
+            .signal_semaphores(&signal_semaphores);
+
+        unsafe {
+            self.main_device
+                .logical_device
+                .queue_submit(queue, &[submit_info.build()], may_begin_drawing)
+                .unwrap();
+        }
+    }
+
+    fn present_command_buffer(
+        &self,
+        queue: vk::Queue,
+        image_index: u32,
+        rendering_finished: vk::Semaphore,
+    ) {
+        let swapchains = [self.swapchain.swapchain];
+        let image_indices = [image_index];
+
+        let present_info = vk::PresentInfoKHR::builder()
+            .wait_semaphores(slice::from_ref(&rendering_finished))
+            .swapchains(&swapchains)
+            .image_indices(&image_indices);
+
+        unsafe {
+            self.swapchain
+                .swapchain_loader
+                .queue_present(queue, &present_info)
+                .unwrap();
+        }
     }
 
     fn add_render_pass<F: FnOnce(vk::CommandBuffer)>(
