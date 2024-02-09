@@ -143,71 +143,52 @@ impl Renderer {
             } => elwt.exit(),
             Event::NewEvents(StartCause::Poll) => {
                 // acquiring next image:
-                let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
-                    unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
+                let (
+                    image_index,
+                    image_available,
+                    rendering_finished,
+                    may_begin_drawing,
+                    framebuffer,
+                ) = unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
 
-                // submit:
-                let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+                // commands:
                 let command_buffer = self.graphics_command_buffers[image_index as usize];
 
-                self.fill_command_buffer(command_buffer, |command_buffer| {
-                    let clear_values = [vk::ClearValue {
-                        color: vk::ClearColorValue {
-                            float32: [0.0, 0.0, 0.0, 1.0],
+                self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
+                    self.add_render_pass(
+                        command_buffer,
+                        self.render_pass,
+                        framebuffer,
+                        |command_buffer| unsafe {
+                            self.main_device.logical_device.cmd_bind_pipeline(
+                                command_buffer,
+                                vk::PipelineBindPoint::GRAPHICS,
+                                self.graphics_pipeline.pipeline,
+                            );
+
+                            self.main_device.logical_device.cmd_set_viewport(
+                                command_buffer,
+                                0,
+                                &self.graphics_pipeline.viewports,
+                            );
+                            self.main_device.logical_device.cmd_set_scissor(
+                                command_buffer,
+                                0,
+                                &self.graphics_pipeline.scissors,
+                            );
+
+                            self.main_device.logical_device.cmd_bind_vertex_buffers(
+                                command_buffer,
+                                0,
+                                &[vertex_buffer.buffer],
+                                &[0],
+                            );
                         },
-                    }];
-
-                    let render_pass_info = vk::RenderPassBeginInfo::builder()
-                        .render_pass(self.render_pass)
-                        .framebuffer(framebuffer)
-                        .render_area(vk::Rect2D {
-                            offset: vk::Offset2D { x: 0, y: 0 },
-                            extent: self.swapchain.extent,
-                        })
-                        .clear_values(&clear_values);
-
-                    unsafe {
-                        self.main_device.logical_device.cmd_begin_render_pass(
-                            command_buffer,
-                            &render_pass_info,
-                            vk::SubpassContents::INLINE,
-                        );
-
-                        self.main_device.logical_device.cmd_bind_pipeline(
-                            command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            self.graphics_pipeline.pipeline,
-                        );
-
-                        self.main_device.logical_device.cmd_set_viewport(
-                            command_buffer,
-                            0,
-                            &self.graphics_pipeline.viewports,
-                        );
-                        self.main_device.logical_device.cmd_set_scissor(
-                            command_buffer,
-                            0,
-                            &self.graphics_pipeline.scissors,
-                        );
-
-                        self.main_device.logical_device.cmd_bind_vertex_buffers(
-                            command_buffer,
-                            0,
-                            &[vertex_buffer.buffer],
-                            &[0],
-                        );
-
-                        self.main_device
-                            .logical_device
-                            .cmd_draw(command_buffer, 3, 1, 0, 0);
-
-                        self.main_device
-                            .logical_device
-                            .cmd_end_render_pass(command_buffer);
-                    }
+                    );
                 })
                 .unwrap();
 
+                let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
                 let submit_info = [vk::SubmitInfo::builder()
                     .wait_semaphores(&[image_available])
                     .wait_dst_stage_mask(&waiting_stages)
@@ -218,11 +199,7 @@ impl Renderer {
                 unsafe {
                     self.main_device
                         .logical_device
-                        .queue_submit(
-                            graphics_queue,
-                            &submit_info,
-                            may_begin_drawing,
-                        )
+                        .queue_submit(graphics_queue, &submit_info, may_begin_drawing)
                         .unwrap();
                 };
 
@@ -346,9 +323,39 @@ impl Renderer {
         Ok(())
     }
 
-    /// Renders a frame for our Vulkan app.
-    unsafe fn render(&mut self, _window: &RendererWindow) -> Result<()> {
-        unimplemented!()
+    fn add_render_pass<F: FnOnce(vk::CommandBuffer)>(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        render_pass: vk::RenderPass,
+        framebuffer: vk::Framebuffer,
+        f: F,
+    ) {
+        let clear_values = [vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.0, 0.0, 0.0, 1.0],
+            },
+        }];
+
+        let render_pass_info = vk::RenderPassBeginInfo::builder()
+            .render_pass(render_pass)
+            .framebuffer(framebuffer)
+            .render_area(vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: self.swapchain.extent,
+            })
+            .clear_values(&clear_values);
+
+        unsafe {
+            self.main_device.logical_device.cmd_begin_render_pass(
+                command_buffer,
+                &render_pass_info,
+                vk::SubpassContents::INLINE,
+            );
+            f(command_buffer);
+            self.main_device
+                .logical_device
+                .cmd_end_render_pass(command_buffer);
+        }
     }
 
     /// Destroys our Vulkan app.
