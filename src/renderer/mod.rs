@@ -104,9 +104,7 @@ impl Renderer {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        // TODO Wrapper in window with close already set
         let graphics_queue = self.main_device.main_graphics_queue_family().queues[0];
-        let event_loop = self.window.acquire_event_loop()?;
 
         let vertices = [
             Vertex {
@@ -125,102 +123,80 @@ impl Renderer {
 
         let vertex_buffer = VertexBuffer::new(&self.main_device, &vertices)?;
 
-        event_loop.set_control_flow(ControlFlow::Poll);
-        event_loop.run(move |event, elwt| match event {
-            Event::WindowEvent {
-                event:
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                state: ElementState::Pressed,
-                                logical_key: Key::Named(NamedKey::Escape),
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            } => elwt.exit(),
-            Event::NewEvents(StartCause::Poll) => {
-                // acquiring next image:
-                let (
-                    image_index,
-                    image_available,
-                    rendering_finished,
-                    may_begin_drawing,
+        let event_loop = self.window.acquire_event_loop()?;
+        RendererWindow::run(event_loop, move || {
+            // acquiring next image:
+            let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
+                unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
+
+            // commands:
+            let command_buffer = self.graphics_command_buffers[image_index as usize];
+
+            self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
+                self.add_render_pass(
+                    command_buffer,
+                    self.render_pass,
                     framebuffer,
-                ) = unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
+                    |command_buffer| unsafe {
+                        self.main_device.logical_device.cmd_bind_pipeline(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.graphics_pipeline.pipeline,
+                        );
 
-                // commands:
-                let command_buffer = self.graphics_command_buffers[image_index as usize];
+                        self.main_device.logical_device.cmd_set_viewport(
+                            command_buffer,
+                            0,
+                            &self.graphics_pipeline.viewports,
+                        );
+                        self.main_device.logical_device.cmd_set_scissor(
+                            command_buffer,
+                            0,
+                            &self.graphics_pipeline.scissors,
+                        );
 
-                self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
-                    self.add_render_pass(
-                        command_buffer,
-                        self.render_pass,
-                        framebuffer,
-                        |command_buffer| unsafe {
-                            self.main_device.logical_device.cmd_bind_pipeline(
-                                command_buffer,
-                                vk::PipelineBindPoint::GRAPHICS,
-                                self.graphics_pipeline.pipeline,
-                            );
+                        self.main_device.logical_device.cmd_bind_vertex_buffers(
+                            command_buffer,
+                            0,
+                            &[vertex_buffer.buffer],
+                            &[0],
+                        );
+                    },
+                );
+            })
+            .unwrap();
 
-                            self.main_device.logical_device.cmd_set_viewport(
-                                command_buffer,
-                                0,
-                                &self.graphics_pipeline.viewports,
-                            );
-                            self.main_device.logical_device.cmd_set_scissor(
-                                command_buffer,
-                                0,
-                                &self.graphics_pipeline.scissors,
-                            );
+            let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+            let submit_info = [vk::SubmitInfo::builder()
+                .wait_semaphores(&[image_available])
+                .wait_dst_stage_mask(&waiting_stages)
+                .command_buffers(&[command_buffer])
+                .signal_semaphores(&[rendering_finished])
+                .build()];
 
-                            self.main_device.logical_device.cmd_bind_vertex_buffers(
-                                command_buffer,
-                                0,
-                                &[vertex_buffer.buffer],
-                                &[0],
-                            );
-                        },
-                    );
-                })
-                .unwrap();
+            unsafe {
+                self.main_device
+                    .logical_device
+                    .queue_submit(graphics_queue, &submit_info, may_begin_drawing)
+                    .unwrap();
+            };
 
-                let waiting_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-                let submit_info = [vk::SubmitInfo::builder()
-                    .wait_semaphores(&[image_available])
-                    .wait_dst_stage_mask(&waiting_stages)
-                    .command_buffers(&[command_buffer])
-                    .signal_semaphores(&[rendering_finished])
-                    .build()];
+            // present:
+            let swapchains = [self.swapchain.swapchain];
+            let indices = [image_index];
+            let semaphore_finished = &[rendering_finished];
 
-                unsafe {
-                    self.main_device
-                        .logical_device
-                        .queue_submit(graphics_queue, &submit_info, may_begin_drawing)
-                        .unwrap();
-                };
+            let present_info = vk::PresentInfoKHR::builder()
+                .wait_semaphores(semaphore_finished)
+                .swapchains(&swapchains)
+                .image_indices(&indices);
 
-                // present:
-                let swapchains = [self.swapchain.swapchain];
-                let indices = [image_index];
-                let semaphore_finished = &[rendering_finished];
-
-                let present_info = vk::PresentInfoKHR::builder()
-                    .wait_semaphores(semaphore_finished)
-                    .swapchains(&swapchains)
-                    .image_indices(&indices);
-
-                unsafe {
-                    self.swapchain
-                        .swapchain_loader
-                        .queue_present(graphics_queue, &present_info)
-                        .unwrap();
-                };
-            }
-            _ => (),
+            unsafe {
+                self.swapchain
+                    .swapchain_loader
+                    .queue_present(graphics_queue, &present_info)
+                    .unwrap();
+            };
         })?;
 
         Ok(())

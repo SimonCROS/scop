@@ -71,14 +71,39 @@ impl RendererWindow {
         }
     }
 
-    pub unsafe fn cleanup(&self) {
-        self.surface_loader.destroy_surface(self.surface, None);
-    }
-
-    pub fn acquire_event_loop(&mut self) -> Result<EventLoop<()>> {
+    pub fn acquire_event_loop(&mut self) -> Result<winit::event_loop::EventLoop<()>> {
         match self.event_loop.take() {
             None => anyhow::bail!("EventLoop was acquired before"),
-            Some(el) => Ok(el)
+            Some(el) => Ok(el),
         }
+    }
+
+    pub fn run<F: FnMut()>(event_loop: EventLoop<()>, mut draw_request: F) -> Result<()> {
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+        event_loop.run(move |event, elwt| match event {
+            winit::event::Event::WindowEvent {
+                event:
+                    winit::event::WindowEvent::CloseRequested
+                    | winit::event::WindowEvent::KeyboardInput {
+                        event:
+                            winit::event::KeyEvent {
+                                state: winit::event::ElementState::Pressed,
+                                logical_key:
+                                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape),
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => elwt.exit(),
+            winit::event::Event::NewEvents(winit::event::StartCause::Poll) => draw_request(),
+            _ => (),
+        })?;
+
+        Ok(())
+    }
+
+    pub unsafe fn cleanup(&self) {
+        self.surface_loader.destroy_surface(self.surface, None);
     }
 }
