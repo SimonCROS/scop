@@ -118,7 +118,7 @@ impl RendererPipeline {
 
         let rasterizer_info = vk::PipelineRasterizationStateCreateInfo::builder()
             .polygon_mode(vk::PolygonMode::FILL)
-            .line_width(1.0)
+            .line_width(4.2)
             .cull_mode(vk::CullModeFlags::NONE)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE);
 

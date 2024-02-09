@@ -1,5 +1,6 @@
 pub mod command_pools;
 pub mod device;
+pub mod index_buffer;
 pub mod pipeline;
 pub mod shader;
 pub mod swapchain;
@@ -11,25 +12,15 @@ use std::ffi::{self, c_char, CString};
 
 use anyhow::Result;
 use ash::{
-    extensions::ext::{self},
-    vk,
-};
-
-use raw_window_handle::HasRawDisplayHandle;
-use window::RendererWindow;
-use winit::{
-    event::{ElementState, Event, KeyEvent, StartCause, WindowEvent},
-    event_loop::ControlFlow,
-    keyboard::{Key, NamedKey},
+    extensions::ext,
+    vk::{self, IndexType},
 };
 
 use self::{
-    command_pools::CommandPools,
-    device::RendererDevice,
-    pipeline::RendererPipeline,
-    swapchain::RendererSwapchain,
-    vertex_buffer::{Vertex, VertexBuffer},
+    command_pools::CommandPools, device::RendererDevice, index_buffer::IndexBuffer, pipeline::RendererPipeline, swapchain::RendererSwapchain, vertex_buffer::{Vertex, VertexBuffer}
 };
+use raw_window_handle::HasRawDisplayHandle;
+use window::RendererWindow;
 
 pub struct Renderer {
     pub instance: ash::Instance,
@@ -106,15 +97,11 @@ impl Renderer {
 
         let vertices = [
             Vertex {
-                pos: [-1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 1.0, 0.0, 1.0],
-            },
-            Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 0.0, 1.0, 1.0],
             },
             Vertex {
-                pos: [0.0, -1.0, 0.0, 1.0],
+                pos: [-1.0, -1.0, 0.0, 1.0],
                 color: [1.0, 0.0, 0.0, 1.0],
             },
             Vertex {
@@ -122,28 +109,15 @@ impl Renderer {
                 color: [0.0, 1.0, 0.0, 1.0],
             },
             Vertex {
-                pos: [1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 0.0, 1.0, 1.0],
-            },
-            Vertex {
-                pos: [0.0, -1.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [-1.0, -1.0, 0.0, 1.0],
-                color: [0.0, 0.0, 1.0, 1.0],
-            },
-            Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 1.0, 0.0, 1.0],
             },
-            Vertex {
-                pos: [0.0, -1.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
         ];
 
+        let index = [0, 1, 2, 0, 1, 3];
+
         let vertex_buffer = VertexBuffer::new(&self.main_device, &vertices)?;
+        let index_buffer = IndexBuffer::new(&self.main_device, &index)?;
 
         let event_loop = self.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, move || {
@@ -184,9 +158,16 @@ impl Renderer {
                             &[0],
                         );
 
+                        self.main_device.logical_device.cmd_bind_index_buffer(
+                            command_buffer,
+                            index_buffer.buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+
                         self.main_device
                             .logical_device
-                            .cmd_draw(command_buffer, 9, 1, 0, 0);
+                            .cmd_draw_indexed(command_buffer, 6, 1, 0, 0, 0);
                     },
                 );
             })
