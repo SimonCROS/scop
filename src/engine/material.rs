@@ -1,7 +1,23 @@
+use ash::vk::DescriptorSet;
 
-// struct Material {
-// 	VkPipeline pipeline;
-// 	VkPipelineLayout pipelineLayout;
+use crate::renderer::pipeline::RendererPipeline;
+
+enum MaterialPass {
+    MainColor,
+    Transparent,
+    Other
+}
+
+struct Material {
+	pipeline: RendererPipeline,
+	material_set: DescriptorSet,
+	pass_type: MaterialPass,
+}
+
+// struct MaterialInstance {
+//     Ren* pipeline;
+//     VkDescriptorSet materialSet;
+//     MaterialPass passType;
 // };
 
 // struct RenderObject {
