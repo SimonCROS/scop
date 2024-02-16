@@ -1,4 +1,5 @@
 mod renderer;
+mod engine;
 
 use anyhow::Result;
 use renderer::Renderer;

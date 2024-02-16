@@ -140,17 +140,6 @@ impl Renderer {
                             self.graphics_pipeline.pipeline,
                         );
 
-                        self.main_device.logical_device.cmd_set_viewport(
-                            command_buffer,
-                            0,
-                            &self.graphics_pipeline.viewports,
-                        );
-                        self.main_device.logical_device.cmd_set_scissor(
-                            command_buffer,
-                            0,
-                            &self.graphics_pipeline.scissors,
-                        );
-
                         self.main_device.logical_device.cmd_bind_vertex_buffers(
                             command_buffer,
                             0,
