@@ -1,3 +1,5 @@
+#![feature(lint_reasons)]
+
 mod renderer;
 // mod engine;
 

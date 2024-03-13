@@ -25,6 +25,11 @@ use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
 
 pub struct Renderer {
+    #[allow(
+        dead_code,
+        reason = "Segfaults when destroy device if not in the struct"
+    )]
+    entry: ash::Entry,
     pub instance: ash::Instance,
     // pub debug: RendererDebug,
     pub window: RendererWindow,
@@ -81,6 +86,7 @@ impl Renderer {
         )?;
 
         let renderer = Self {
+            entry,
             instance,
             main_device,
             window,
