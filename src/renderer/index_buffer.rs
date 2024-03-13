@@ -30,42 +30,42 @@ impl IndexBuffer {
                 .get_buffer_memory_requirements(index_input_buffer)
         };
 
-        let index_input_buffer_memory_index = Self::find_memorytype_index(
-            &index_input_buffer_memory_req,
-            &device.memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .context("Unable to find suitable memorytype for the index buffer.")?;
-
-        let index_buffer_allocate_info = vk::MemoryAllocateInfo {
-            allocation_size: index_input_buffer_memory_req.size,
-            memory_type_index: index_input_buffer_memory_index,
-            ..Default::default()
-        };
-
         let index_input_buffer_memory = unsafe {
+            let index_buffer_allocate_info = {
+                let index_input_buffer_memory_index = Self::find_memorytype_index(
+                    &index_input_buffer_memory_req,
+                    &device.memory_properties,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                )
+                .context("Unable to find suitable memorytype for the index buffer.")?;
+
+                vk::MemoryAllocateInfo::builder()
+                    .allocation_size(index_input_buffer_memory_req.size)
+                    .memory_type_index(index_input_buffer_memory_index)
+            };
+
             device
                 .logical_device
                 .allocate_memory(&index_buffer_allocate_info, None)
         }?;
 
         unsafe {
-            device
-                .logical_device
-                .bind_buffer_memory(index_input_buffer, index_input_buffer_memory, 0)?;
+            device.logical_device.bind_buffer_memory(
+                index_input_buffer,
+                index_input_buffer_memory,
+                0,
+            )?;
         }
 
         // Copy vertex data to buffer
-        let vert_ptr = unsafe {
-            device.logical_device.map_memory(
+        let mut vert_align = unsafe {
+            let vert_ptr = device.logical_device.map_memory(
                 index_input_buffer_memory,
                 0,
                 index_input_buffer_memory_req.size,
                 vk::MemoryMapFlags::empty(),
-            )
-        }?;
+            )?;
 
-        let mut vert_align = unsafe {
             Align::new(
                 vert_ptr,
                 mem::align_of::<u32>() as u64,

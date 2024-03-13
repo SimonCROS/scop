@@ -1,5 +1,5 @@
 use anyhow::Result;
-use ash::vk;
+use ash::{vk, Device};
 
 use super::device::RendererDevice;
 
@@ -9,6 +9,8 @@ pub struct CommandPools {
 
 impl CommandPools {
     pub fn new(device: &RendererDevice) -> Result<CommandPools> {
+        dbg!("New command pools");
+
         let graphics_queue_family = device.main_graphics_queue_family();
 
         let graphics_command_pool_info = vk::CommandPoolCreateInfo::builder()
@@ -42,9 +44,10 @@ impl CommandPools {
         }
     }
 
-    pub unsafe fn cleanup(&self, device: &RendererDevice) {
-        device
-            .logical_device
-            .destroy_command_pool(self.graphics, None);
+    pub unsafe fn cleanup(&self, device: &Device, command_buffers: &Vec<vk::CommandBuffer>) {
+        dbg!("Cleanup command pools");
+
+        device.free_command_buffers(self.graphics, command_buffers.as_ref());
+        device.destroy_command_pool(self.graphics, None);
     }
 }

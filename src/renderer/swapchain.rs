@@ -1,7 +1,7 @@
 use core::slice;
 
 use anyhow::Result;
-use ash::{extensions, vk};
+use ash::{extensions, vk, Device};
 
 use super::{device::RendererDevice, window::RendererWindow};
 
@@ -24,6 +24,8 @@ impl RendererSwapchain {
         device: &RendererDevice,
         window: &RendererWindow,
     ) -> Result<Self> {
+        dbg!("New swapchain");
+
         let graphics_queue_family = device.main_graphics_queue_family();
 
         let capabilities = window.capabilities(device.physical_device)?;
@@ -139,7 +141,13 @@ impl RendererSwapchain {
     pub unsafe fn next_image(
         &mut self,
         device: &RendererDevice,
-    ) -> Result<(u32, vk::Semaphore, vk::Semaphore, vk::Fence, vk::Framebuffer)> {
+    ) -> Result<(
+        u32,
+        vk::Semaphore,
+        vk::Semaphore,
+        vk::Fence,
+        vk::Framebuffer,
+    )> {
         let image_available = &self.image_available[self.current_image];
         let rendering_finished = &self.rendering_finished[self.current_image];
         let may_begin_drawing = &self.may_begin_drawing[self.current_image];
@@ -202,27 +210,27 @@ impl RendererSwapchain {
         Ok(())
     }
 
-    pub unsafe fn cleanup(&self, device: &RendererDevice) {
+    pub unsafe fn cleanup(&self, device: &Device) {
+        dbg!("Cleanup swapchain");
+
         for semaphore in &self.image_available {
-            device.logical_device.destroy_semaphore(*semaphore, None);
+            device.destroy_semaphore(*semaphore, None);
         }
 
         for semaphore in &self.rendering_finished {
-            device.logical_device.destroy_semaphore(*semaphore, None);
+            device.destroy_semaphore(*semaphore, None);
         }
 
         for fence in &self.may_begin_drawing {
-            device.logical_device.destroy_fence(*fence, None);
+            device.destroy_fence(*fence, None);
         }
 
         for framebuffer in &self.framebuffers {
-            device
-                .logical_device
-                .destroy_framebuffer(*framebuffer, None);
+            device.destroy_framebuffer(*framebuffer, None);
         }
 
         for image_view in &self.image_views {
-            device.logical_device.destroy_image_view(*image_view, None);
+            device.destroy_image_view(*image_view, None);
         }
 
         self.swapchain_loader

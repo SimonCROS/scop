@@ -19,6 +19,8 @@ impl RendererPipeline {
         extent: vk::Extent2D,
         render_pass: vk::RenderPass,
     ) -> Result<RendererPipeline> {
+        dbg!("New pipeline");
+
         let vert = Shader::from_code_vert(
             &device.logical_device,
             vk_shader_macros::include_glsl!("./shaders/default.vert"),
@@ -114,7 +116,7 @@ impl RendererPipeline {
 
         let rasterizer_info = vk::PipelineRasterizationStateCreateInfo::builder()
             .polygon_mode(vk::PolygonMode::FILL)
-            .line_width(4.2)
+            .line_width(1f32)
             .cull_mode(vk::CullModeFlags::NONE)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE);
 
@@ -173,6 +175,7 @@ impl RendererPipeline {
     }
 
     pub unsafe fn cleanup(&self, device: &ash::Device) {
+        dbg!("Cleanup pipeline");
         device.destroy_pipeline(self.pipeline, None);
         device.destroy_pipeline_layout(self.pipeline_layout, None);
     }

@@ -81,6 +81,8 @@ impl RendererDevice {
     }
 
     pub fn new(instance: &Instance) -> Result<Self> {
+        dbg!("New device");
+
         let physical_device =
             Self::pick_physical_device(instance)?.context("No physical device found")?;
 
@@ -117,6 +119,8 @@ impl RendererDevice {
     }
 
     pub unsafe fn cleanup(&self) {
+        dbg!("Cleanup device");
+
         self.logical_device.destroy_device(None);
     }
 }

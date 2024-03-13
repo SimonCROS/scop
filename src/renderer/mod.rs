@@ -11,13 +11,15 @@ use core::slice;
 use std::ffi::{self, c_char, CString};
 
 use anyhow::Result;
-use ash::{
-    extensions::ext,
-    vk::{self, IndexType},
-};
+use ash::{extensions::ext, vk};
 
 use self::{
-    command_pools::CommandPools, device::RendererDevice, index_buffer::IndexBuffer, pipeline::RendererPipeline, swapchain::RendererSwapchain, vertex_buffer::{Vertex, VertexBuffer}
+    command_pools::CommandPools,
+    device::RendererDevice,
+    index_buffer::IndexBuffer,
+    pipeline::RendererPipeline,
+    swapchain::RendererSwapchain,
+    vertex_buffer::{Vertex, VertexBuffer},
 };
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
@@ -128,6 +130,20 @@ impl Renderer {
             // commands:
             let command_buffer = self.graphics_command_buffers[image_index as usize];
 
+            // let buffer_barrier = BufferMemoryBarrier2::builder()
+            //     .src_access_mask(AccessFlags2::HOST_WRITE)
+            //     .dst_access_mask(AccessFlags2::SHADER_READ)
+            //     .src_queue_family_index(QUEUE_FAMILY_IGNORED)
+            //     .dst_queue_family_index(QUEUE_FAMILY_IGNORED)
+            //     .buffer(vertex_buffer.buffer)
+            //     .offset(0)
+            //     .size(WHOLE_SIZE);
+            // let dependency_info = DependencyInfo::builder()
+            //     .buffer_memory_barriers(slice::from_ref(&buffer_barrier));
+            // unsafe {
+            //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
+            // };
+
             self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
                 self.add_render_pass(
                     command_buffer,
@@ -154,9 +170,14 @@ impl Renderer {
                             vk::IndexType::UINT32,
                         );
 
-                        self.main_device
-                            .logical_device
-                            .cmd_draw_indexed(command_buffer, 6, 1, 0, 0, 0);
+                        self.main_device.logical_device.cmd_draw_indexed(
+                            command_buffer,
+                            6,
+                            1,
+                            0,
+                            0,
+                            0,
+                        );
                     },
                 );
             })
@@ -356,7 +377,24 @@ impl Renderer {
                 .cmd_end_render_pass(command_buffer);
         }
     }
+}
 
-    /// Destroys our Vulkan app.
-    unsafe fn destroy(&mut self) {}
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        dbg!("Drop Renderer");
+        unsafe {
+            let _ = self.main_device.logical_device.device_wait_idle();
+
+            self.command_pools.cleanup(
+                &self.main_device.logical_device,
+                &self.graphics_command_buffers,
+            );
+            self.graphics_pipeline
+                .cleanup(&self.main_device.logical_device);
+            self.swapchain.cleanup(&self.main_device.logical_device);
+            self.main_device.cleanup();
+            self.window.cleanup();
+            self.instance.destroy_instance(None);
+        }
+    }
 }

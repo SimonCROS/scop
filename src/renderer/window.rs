@@ -32,6 +32,8 @@ impl RendererWindow {
         entry: &ash::Entry,
         instance: &ash::Instance,
     ) -> Result<Self> {
+        dbg!("New window");
+
         let surface = unsafe {
             ash_window::create_surface(
                 entry,
@@ -105,6 +107,7 @@ impl RendererWindow {
     }
 
     pub unsafe fn cleanup(&self) {
+        dbg!("Cleanup window");
         self.surface_loader.destroy_surface(self.surface, None);
     }
 }
