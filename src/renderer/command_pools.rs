@@ -47,7 +47,7 @@ impl CommandPools {
     pub unsafe fn cleanup(&self, device: &Device, command_buffers: &Vec<vk::CommandBuffer>) {
         dbg!("Cleanup command pools");
 
-        device.free_command_buffers(self.graphics, command_buffers.as_ref());
+        device.free_command_buffers(self.graphics, command_buffers);
         device.destroy_command_pool(self.graphics, None);
     }
 }
