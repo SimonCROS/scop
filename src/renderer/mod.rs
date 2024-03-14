@@ -39,8 +39,12 @@ pub struct Renderer {
     pub graphics_pipeline: RendererPipeline,
     pub command_pools: CommandPools,
     pub graphics_command_buffers: Vec<vk::CommandBuffer>,
+    pub graphics_queue: vk::Queue,
     pub vertex_buffer: VertexBuffer,
     pub index_buffer: IndexBuffer,
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
+    pub frame_count: u32,
 }
 
 impl Renderer {
@@ -87,28 +91,12 @@ impl Renderer {
             swapchain.image_count as u32,
         )?;
 
+        let graphics_queue = main_device.main_graphics_queue_family().queues[0];
+
         let vertex_buffer = unsafe { VertexBuffer::new(&main_device) }?;
         let index_buffer = unsafe { IndexBuffer::new(&main_device) }?;
 
-        Ok(Self {
-            entry,
-            instance,
-            main_device,
-            window,
-            swapchain,
-            render_pass,
-            graphics_pipeline,
-            command_pools,
-            graphics_command_buffers,
-            vertex_buffer,
-            index_buffer,
-        })
-    }
-
-    pub fn run(&mut self) -> Result<()> {
-        let graphics_queue = self.main_device.main_graphics_queue_family().queues[0];
-
-        let vertices = [
+        let vertices = vec![
             Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 0.0, 1.0, 1.0],
@@ -127,89 +115,109 @@ impl Renderer {
             },
         ];
 
-        let indices = [0u32, 1, 2, 0, 1, 3];
+        let indices = vec![0u32, 1, 2, 0, 1, 3];
 
+        Ok(Self {
+            entry,
+            instance,
+            main_device,
+            window,
+            swapchain,
+            render_pass,
+            graphics_pipeline,
+            command_pools,
+            graphics_command_buffers,
+            graphics_queue,
+            vertex_buffer,
+            index_buffer,
+            vertices,
+            indices,
+            frame_count: 0,
+        })
+    }
+
+    pub fn run(&mut self) -> Result<()> {
         let event_loop = self.window.acquire_event_loop()?;
-        RendererWindow::run(event_loop, move || {
-            // acquiring next image:
-            let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
-                unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
 
-            // commands:
-            let command_buffer = self.graphics_command_buffers[image_index as usize];
+        RendererWindow::run(event_loop, || self.handle_draw_request())?;
 
-            // let buffer_barrier = BufferMemoryBarrier2::builder()
-            //     .src_access_mask(AccessFlags2::HOST_WRITE)
-            //     .dst_access_mask(AccessFlags2::SHADER_READ)
-            //     .src_queue_family_index(QUEUE_FAMILY_IGNORED)
-            //     .dst_queue_family_index(QUEUE_FAMILY_IGNORED)
-            //     .buffer(vertex_buffer.buffer)
-            //     .offset(0)
-            //     .size(WHOLE_SIZE);
-            // let dependency_info = DependencyInfo::builder()
-            //     .buffer_memory_barriers(slice::from_ref(&buffer_barrier));
-            // unsafe {
-            //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
-            // };
+        Ok(())
+    }
 
-            unsafe {
-                self.vertex_buffer
-                    .set_vertices_from_slice(&self.main_device.logical_device, &vertices)?;
-                self.index_buffer
-                    .set_indices_from_slice(&self.main_device.logical_device, &indices)?;
-            }
+    fn handle_draw_request(&mut self) -> Result<()> {
+        self.frame_count += 1;
 
-            self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
-                self.add_render_pass(
-                    command_buffer,
-                    self.render_pass,
-                    framebuffer,
-                    |command_buffer| unsafe {
-                        self.main_device.logical_device.cmd_bind_pipeline(
-                            command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            self.graphics_pipeline.pipeline,
-                        );
+        // acquiring next image:
+        let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
+            unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
 
-                        self.main_device.logical_device.cmd_bind_vertex_buffers(
-                            command_buffer,
-                            0,
-                            &[self.vertex_buffer.buffer],
-                            &[0],
-                        );
+        // commands:
+        let command_buffer = self.graphics_command_buffers[image_index as usize];
 
-                        self.main_device.logical_device.cmd_bind_index_buffer(
-                            command_buffer,
-                            self.index_buffer.buffer,
-                            0,
-                            vk::IndexType::UINT32,
-                        );
+        // let buffer_barrier = BufferMemoryBarrier2::builder()
+        //     .src_access_mask(AccessFlags2::HOST_WRITE)
+        //     .dst_access_mask(AccessFlags2::SHADER_READ)
+        //     .src_queue_family_index(QUEUE_FAMILY_IGNORED)
+        //     .dst_queue_family_index(QUEUE_FAMILY_IGNORED)
+        //     .buffer(vertex_buffer.buffer)
+        //     .offset(0)
+        //     .size(WHOLE_SIZE);
+        // let dependency_info = DependencyInfo::builder()
+        //     .buffer_memory_barriers(slice::from_ref(&buffer_barrier));
+        // unsafe {
+        //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
+        // };
 
-                        self.main_device.logical_device.cmd_draw_indexed(
-                            command_buffer,
-                            6,
-                            1,
-                            0,
-                            0,
-                            0,
-                        );
-                    },
-                );
-            })
-            .unwrap();
+        unsafe {
+            self.vertex_buffer
+                .set_vertices_from_slice(&self.main_device.logical_device, &self.vertices)?;
+            self.index_buffer
+                .set_indices_from_slice(&self.main_device.logical_device, &self.indices)?;
+        }
 
-            self.submit_command_buffer(
-                graphics_queue,
+        self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
+            self.add_render_pass(
                 command_buffer,
-                image_available,
-                rendering_finished,
-                may_begin_drawing,
+                self.render_pass,
+                framebuffer,
+                |command_buffer| unsafe {
+                    self.main_device.logical_device.cmd_bind_pipeline(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.graphics_pipeline.pipeline,
+                    );
+
+                    self.main_device.logical_device.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &[self.vertex_buffer.buffer],
+                        &[0],
+                    );
+
+                    self.main_device.logical_device.cmd_bind_index_buffer(
+                        command_buffer,
+                        self.index_buffer.buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+
+                    self.main_device
+                        .logical_device
+                        .cmd_draw_indexed(command_buffer, 6, 1, 0, 0, 0);
+                },
             );
+        })
+        .unwrap();
 
-            self.present_command_buffer(graphics_queue, image_index, rendering_finished);
+        self.submit_command_buffer(
+            self.graphics_queue,
+            command_buffer,
+            image_available,
+            rendering_finished,
+            may_begin_drawing,
+        );
 
-            Ok(())
-        })?;
+        self.present_command_buffer(self.graphics_queue, image_index, rendering_finished);
 
         Ok(())
     }
@@ -410,7 +418,9 @@ impl Drop for Renderer {
             self.graphics_pipeline
                 .cleanup(&self.main_device.logical_device);
             self.swapchain.cleanup(&self.main_device.logical_device);
-            self.main_device.logical_device.destroy_render_pass(self.render_pass, None);
+            self.main_device
+                .logical_device
+                .destroy_render_pass(self.render_pass, None);
             self.main_device.cleanup();
             self.window.cleanup();
             self.instance.destroy_instance(None);
