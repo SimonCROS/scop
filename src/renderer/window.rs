@@ -81,7 +81,10 @@ impl RendererWindow {
         }
     }
 
-    pub fn run<F: FnMut()>(event_loop: EventLoop<()>, mut draw_request: F) -> Result<()> {
+    pub fn run<F: FnMut() -> Result<()>>(
+        event_loop: EventLoop<()>,
+        mut draw_request: F,
+    ) -> Result<()> {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
         event_loop.run(move |event, elwt| match event {
             winit::event::Event::WindowEvent {
@@ -99,7 +102,15 @@ impl RendererWindow {
                     },
                 ..
             } => elwt.exit(),
-            winit::event::Event::NewEvents(winit::event::StartCause::Poll) => draw_request(),
+            winit::event::Event::NewEvents(winit::event::StartCause::Poll) => {
+                match draw_request() {
+                    Ok(_) => (),
+                    Err(e) => {
+                        dbg!(e);
+                        elwt.exit();
+                    }
+                }
+            }
             _ => (),
         })?;
 

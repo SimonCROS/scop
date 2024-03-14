@@ -39,6 +39,8 @@ pub struct Renderer {
     pub graphics_pipeline: RendererPipeline,
     pub command_pools: CommandPools,
     pub graphics_command_buffers: Vec<vk::CommandBuffer>,
+    pub vertex_buffer: VertexBuffer,
+    pub index_buffer: IndexBuffer,
 }
 
 impl Renderer {
@@ -85,7 +87,10 @@ impl Renderer {
             swapchain.image_count as u32,
         )?;
 
-        let renderer = Self {
+        let vertex_buffer = unsafe { VertexBuffer::new(&main_device) }?;
+        let index_buffer = unsafe { IndexBuffer::new(&main_device) }?;
+
+        Ok(Self {
             entry,
             instance,
             main_device,
@@ -95,9 +100,9 @@ impl Renderer {
             graphics_pipeline,
             command_pools,
             graphics_command_buffers,
-        };
-
-        Ok(renderer)
+            vertex_buffer,
+            index_buffer,
+        })
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -122,10 +127,7 @@ impl Renderer {
             },
         ];
 
-        let index = [0, 1, 2, 0, 1, 3];
-
-        let vertex_buffer = VertexBuffer::new(&self.main_device, &vertices)?;
-        let index_buffer = IndexBuffer::new(&self.main_device, &index)?;
+        let indices = [0u32, 1, 2, 0, 1, 3];
 
         let event_loop = self.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, move || {
@@ -150,6 +152,13 @@ impl Renderer {
             //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
             // };
 
+            unsafe {
+                self.vertex_buffer
+                    .set_vertices_from_slice(&self.main_device.logical_device, &vertices)?;
+                self.index_buffer
+                    .set_indices_from_slice(&self.main_device.logical_device, &indices)?;
+            }
+
             self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
                 self.add_render_pass(
                     command_buffer,
@@ -165,13 +174,13 @@ impl Renderer {
                         self.main_device.logical_device.cmd_bind_vertex_buffers(
                             command_buffer,
                             0,
-                            &[vertex_buffer.buffer],
+                            &[self.vertex_buffer.buffer],
                             &[0],
                         );
 
                         self.main_device.logical_device.cmd_bind_index_buffer(
                             command_buffer,
-                            index_buffer.buffer,
+                            self.index_buffer.buffer,
                             0,
                             vk::IndexType::UINT32,
                         );
@@ -198,6 +207,8 @@ impl Renderer {
             );
 
             self.present_command_buffer(graphics_queue, image_index, rendering_finished);
+
+            Ok(())
         })?;
 
         Ok(())
@@ -259,7 +270,6 @@ impl Renderer {
         let subpass_dependencies = [vk::SubpassDependency::builder()
             .src_subpass(vk::SUBPASS_EXTERNAL)
             .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_subpass(0)
             .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
             .dst_access_mask(
                 vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
@@ -391,6 +401,8 @@ impl Drop for Renderer {
         unsafe {
             let _ = self.main_device.logical_device.device_wait_idle();
 
+            self.index_buffer.cleanup(&self.main_device.logical_device);
+            self.vertex_buffer.cleanup(&self.main_device.logical_device);
             self.command_pools.cleanup(
                 &self.main_device.logical_device,
                 &self.graphics_command_buffers,
@@ -398,6 +410,7 @@ impl Drop for Renderer {
             self.graphics_pipeline
                 .cleanup(&self.main_device.logical_device);
             self.swapchain.cleanup(&self.main_device.logical_device);
+            self.main_device.logical_device.destroy_render_pass(self.render_pass, None);
             self.main_device.cleanup();
             self.window.cleanup();
             self.instance.destroy_instance(None);
