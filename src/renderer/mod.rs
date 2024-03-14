@@ -115,7 +115,7 @@ impl Renderer {
             },
         ];
 
-        let indices = vec![0u32, 1, 2, 0, 1, 3];
+        let indices = vec![0, 1, 2, 0, 1, 3];
 
         Ok(Self {
             entry,
@@ -146,6 +146,24 @@ impl Renderer {
 
     fn handle_draw_request(&mut self) -> Result<()> {
         self.frame_count += 1;
+
+        if self.frame_count == 60*5 {
+            self.vertices.extend([
+                Vertex {
+                    pos: [-1.0, 1.0, 0.0, 1.0],
+                    color: [1.0, 1.0, 1.0, 1.0],
+                },
+                Vertex {
+                    pos: [1.0, 1.0, 0.0, 1.0],
+                    color: [1.0, 1.0, 1.0, 1.0],
+                },
+                Vertex {
+                    pos: [0.0, -1.0, 0.0, 1.0],
+                    color: [1.0, 1.0, 1.0, 1.0],
+                },
+            ]);
+            self.indices.extend([4, 5, 6]);
+        }
 
         // acquiring next image:
         let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
@@ -201,9 +219,14 @@ impl Renderer {
                         vk::IndexType::UINT32,
                     );
 
-                    self.main_device
-                        .logical_device
-                        .cmd_draw_indexed(command_buffer, 6, 1, 0, 0, 0);
+                    self.main_device.logical_device.cmd_draw_indexed(
+                        command_buffer,
+                        self.indices.len() as u32,
+                        1,
+                        0,
+                        0,
+                        0,
+                    );
                 },
             );
         })
