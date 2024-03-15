@@ -93,10 +93,10 @@ impl Renderer {
 
         let graphics_queue = main_device.main_graphics_queue_family().queues[0];
 
-        let vertex_buffer = unsafe { VertexBuffer::new(&main_device) }?;
-        let index_buffer = unsafe { IndexBuffer::new(&main_device) }?;
+        let mut vertex_buffer = unsafe { VertexBuffer::new(&main_device) }?;
+        let mut index_buffer = unsafe { IndexBuffer::new(&main_device) }?;
 
-        let vertices = vec![
+        let mut vertices = vec![
             Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 0.0, 1.0, 1.0],
@@ -115,7 +115,33 @@ impl Renderer {
             },
         ];
 
-        let indices = vec![0, 1, 2, 0, 1, 3];
+        let mut indices = vec![0, 1, 2, 0, 1, 3];
+
+        for i in 0..10000 {
+            let color = (i % 100) as f32 / 100.0;
+            indices.extend(vertices.len() as u32..(vertices.len() + 3) as u32);
+            vertices.extend([
+                Vertex {
+                    pos: [-0.2, 0.2, 0.0, 1.0],
+                    color: [color, color, color, 1.0],
+                },
+                Vertex {
+                    pos: [0.2, 0.2, 0.0, 1.0],
+                    color: [color, color, color, 1.0],
+                },
+                Vertex {
+                    pos: [0.0, -0.2, 0.0, 1.0],
+                    color: [color, color, color, 1.0],
+                },
+            ]);
+        }
+
+        unsafe {
+            vertex_buffer
+                .set_vertices_from_slice(&main_device.logical_device, &vertices)?;
+            index_buffer
+                .set_indices_from_slice(&main_device.logical_device, &indices)?;
+        }
 
         Ok(Self {
             entry,
@@ -147,24 +173,6 @@ impl Renderer {
     fn handle_draw_request(&mut self) -> Result<()> {
         self.frame_count += 1;
 
-        if self.frame_count == 60*5 {
-            self.vertices.extend([
-                Vertex {
-                    pos: [-1.0, 1.0, 0.0, 1.0],
-                    color: [1.0, 1.0, 1.0, 1.0],
-                },
-                Vertex {
-                    pos: [1.0, 1.0, 0.0, 1.0],
-                    color: [1.0, 1.0, 1.0, 1.0],
-                },
-                Vertex {
-                    pos: [0.0, -1.0, 0.0, 1.0],
-                    color: [1.0, 1.0, 1.0, 1.0],
-                },
-            ]);
-            self.indices.extend([4, 5, 6]);
-        }
-
         // acquiring next image:
         let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
             unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
@@ -185,13 +193,6 @@ impl Renderer {
         // unsafe {
         //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
         // };
-
-        unsafe {
-            self.vertex_buffer
-                .set_vertices_from_slice(&self.main_device.logical_device, &self.vertices)?;
-            self.index_buffer
-                .set_indices_from_slice(&self.main_device.logical_device, &self.indices)?;
-        }
 
         self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
             self.add_render_pass(

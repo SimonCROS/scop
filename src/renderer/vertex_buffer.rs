@@ -76,10 +76,13 @@ impl VertexBuffer {
             vk::MemoryMapFlags::empty(),
         )?;
 
+        let start = std::time::Instant::now();
         let mut align = Align::new(ptr, mem::align_of::<u32>() as u64, size);
 
         align.copy_from_slice(vertices);
         device.unmap_memory(self.memory);
+        let end = std::time::Instant::now();
+        println!("Elapsed time: {:?}", end.duration_since(start));
 
         self.current_size = size;
 
