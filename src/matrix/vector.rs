@@ -1,8 +1,8 @@
 use crate::traits::{Dot, Field};
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign, Index, IndexMut};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Vector<const SIZE: usize, K>(pub(super) [K; SIZE]);
 
 impl<const SIZE: usize, K> Vector<SIZE, K>
@@ -223,7 +223,8 @@ where
 
 impl<const SIZE: usize, K> Index<usize> for Vector<SIZE, K>
 where
-    K: Field {
+    K: Field,
+{
     type Output = K;
     fn index<'a>(&'a self, i: usize) -> &'a K {
         &self.0[i]
@@ -232,8 +233,50 @@ where
 
 impl<const SIZE: usize, K> IndexMut<usize> for Vector<SIZE, K>
 where
-    K: Field {
+    K: Field,
+{
     fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut K {
         &mut self.0[i]
+    }
+}
+
+impl Vector<3, f32> {
+    pub fn x(&self) -> f32 {
+        self.0[0]
+    }
+
+    pub fn y(&self) -> f32 {
+        self.0[1]
+    }
+
+    pub fn z(&self) -> f32 {
+        self.0[2]
+    }
+
+    pub fn from_angle_z(angle: f32) -> Self {
+        Self([angle.cos(), angle.sin(), 0.0])
+    }
+
+    pub fn from_angle_y(angle: f32) -> Self {
+        Self([angle.cos(), 0.0, angle.sin()])
+    }
+
+    pub fn from_angle_x(angle: f32) -> Self {
+        Self([0.0, angle.cos(), angle.sin()])
+    }
+
+    pub fn from_angle_axis(angle: f32, axis: &Self) -> Self {
+        let c = angle.cos();
+        let s = angle.sin();
+        let t = 1.0 - c;
+        let x = axis.0[0];
+        let y = axis.0[1];
+        let z = axis.0[2];
+        Self([(t * x * x + c), (t * x * y - s * z), (t * x * z + s * y)])
+    }
+
+    pub fn normalize(&self) -> Self {
+        let norm = self.norm();
+        Self([self.0[0] / norm, self.0[1] / norm, self.0[2] / norm])
     }
 }

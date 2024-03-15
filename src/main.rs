@@ -10,6 +10,7 @@ use renderer::Renderer;
 pub type Matrix4 = Matrix<4, 4, f32>;
 pub type Vector2 = Vector<3, f32>;
 pub type Vector3 = Vector<3, f32>;
+pub type Vector4 = Vector<4, f32>;
 
 fn main() -> Result<()> {
     let mut renderer = Renderer::new()?;
