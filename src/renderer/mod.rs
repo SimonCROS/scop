@@ -1,4 +1,5 @@
 pub mod command_pools;
+pub mod debug;
 pub mod device;
 pub mod index_buffer;
 pub mod pipeline;
@@ -8,18 +9,21 @@ pub mod vertex_buffer;
 pub mod window;
 
 use core::slice;
-use std::ffi::{self, c_char, CString};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    ffi::{self, c_char, CString},
+    rc::Rc,
+};
 
 use anyhow::Result;
 use ash::{extensions::ext, vk};
 
+use crate::engine::GameObject;
+
 use self::{
-    command_pools::CommandPools,
-    device::RendererDevice,
-    index_buffer::IndexBuffer,
-    pipeline::RendererPipeline,
-    swapchain::RendererSwapchain,
-    vertex_buffer::{Vertex, VertexBuffer},
+    command_pools::CommandPools, debug::RendererDebug, device::RendererDevice,
+    pipeline::RendererPipeline, swapchain::RendererSwapchain,
 };
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
@@ -31,19 +35,15 @@ pub struct Renderer {
     )]
     entry: ash::Entry,
     pub instance: ash::Instance,
-    // pub debug: RendererDebug,
+    pub debug: RendererDebug,
     pub window: RendererWindow,
-    pub main_device: RendererDevice,
+    pub main_device: Rc<RendererDevice>,
     pub swapchain: RendererSwapchain,
     pub render_pass: vk::RenderPass,
     pub graphics_pipeline: RendererPipeline,
     pub command_pools: CommandPools,
     pub graphics_command_buffers: Vec<vk::CommandBuffer>,
     pub graphics_queue: vk::Queue,
-    pub vertex_buffer: VertexBuffer,
-    pub index_buffer: IndexBuffer,
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
     pub frame_count: u32,
 }
 
@@ -74,6 +74,8 @@ impl Renderer {
 
         let window = RendererWindow::new(event_loop, window, &entry, &instance)?;
 
+        let debug = RendererDebug::new(&entry, &instance)?;
+
         let main_device = RendererDevice::new(&instance)?;
 
         let render_pass = Self::create_render_pass(&main_device, &window)?;
@@ -93,60 +95,11 @@ impl Renderer {
 
         let graphics_queue = main_device.main_graphics_queue_family().queues[0];
 
-        let mut vertex_buffer = unsafe { VertexBuffer::new(&main_device) }?;
-        let mut index_buffer = unsafe { IndexBuffer::new(&main_device) }?;
-
-        let mut vertices = vec![
-            Vertex {
-                pos: [1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 0.0, 1.0, 1.0],
-            },
-            Vertex {
-                pos: [-1.0, -1.0, 0.0, 1.0],
-                color: [0.0, 1.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [1.0, -1.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [-1.0, 1.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-        ];
-
-        let mut indices = vec![0, 1, 2, 0, 1, 3];
-
-        for i in 0..10000 {
-            let color = (i % 100) as f32 / 100.0;
-            indices.extend(vertices.len() as u32..(vertices.len() + 3) as u32);
-            vertices.extend([
-                Vertex {
-                    pos: [-0.2, 0.2, 0.0, 1.0],
-                    color: [color, color, color, 1.0],
-                },
-                Vertex {
-                    pos: [0.2, 0.2, 0.0, 1.0],
-                    color: [color, color, color, 1.0],
-                },
-                Vertex {
-                    pos: [0.0, -0.2, 0.0, 1.0],
-                    color: [color, color, color, 1.0],
-                },
-            ]);
-        }
-
-        unsafe {
-            vertex_buffer
-                .set_vertices_from_slice(&main_device.logical_device, &vertices)?;
-            index_buffer
-                .set_indices_from_slice(&main_device.logical_device, &indices)?;
-        }
-
         Ok(Self {
             entry,
             instance,
-            main_device,
+            debug,
+            main_device: Rc::new(main_device),
             window,
             swapchain,
             render_pass,
@@ -154,23 +107,14 @@ impl Renderer {
             command_pools,
             graphics_command_buffers,
             graphics_queue,
-            vertex_buffer,
-            index_buffer,
-            vertices,
-            indices,
             frame_count: 0,
         })
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        let event_loop = self.window.acquire_event_loop()?;
-
-        RendererWindow::run(event_loop, || self.handle_draw_request())?;
-
-        Ok(())
-    }
-
-    fn handle_draw_request(&mut self) -> Result<()> {
+    pub fn handle_draw_request(
+        &mut self,
+        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
+    ) -> Result<()> {
         self.frame_count += 1;
 
         // acquiring next image:
@@ -206,28 +150,12 @@ impl Renderer {
                         self.graphics_pipeline.pipeline,
                     );
 
-                    self.main_device.logical_device.cmd_bind_vertex_buffers(
-                        command_buffer,
-                        0,
-                        &[self.vertex_buffer.buffer],
-                        &[0],
-                    );
-
-                    self.main_device.logical_device.cmd_bind_index_buffer(
-                        command_buffer,
-                        self.index_buffer.buffer,
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-
-                    self.main_device.logical_device.cmd_draw_indexed(
-                        command_buffer,
-                        self.indices.len() as u32,
-                        1,
-                        0,
-                        0,
-                        0,
-                    );
+                    for go in game_objects.values() {
+                        if let Some(mesh) = &go.borrow().mesh {
+                            mesh.bind(command_buffer);
+                            mesh.draw(command_buffer);
+                        }
+                    }
                 },
             );
         })
@@ -277,6 +205,7 @@ impl Renderer {
     ) -> Result<vk::RenderPass> {
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.first().unwrap();
+        // let surface_format = surface_formats.iter().find(|s| ).first().unwrap();
 
         let attachments = [vk::AttachmentDescription::builder()
             .format(surface_format.format)
@@ -433,8 +362,6 @@ impl Drop for Renderer {
         unsafe {
             let _ = self.main_device.logical_device.device_wait_idle();
 
-            self.index_buffer.cleanup(&self.main_device.logical_device);
-            self.vertex_buffer.cleanup(&self.main_device.logical_device);
             self.command_pools.cleanup(
                 &self.main_device.logical_device,
                 &self.graphics_command_buffers,
@@ -446,6 +373,7 @@ impl Drop for Renderer {
                 .logical_device
                 .destroy_render_pass(self.render_pass, None);
             self.main_device.cleanup();
+            self.debug.cleanup();
             self.window.cleanup();
             self.instance.destroy_instance(None);
         }

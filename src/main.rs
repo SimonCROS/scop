@@ -1,19 +1,20 @@
 #![feature(lint_reasons)]
 
-mod renderer;
 mod engine;
+mod math;
+mod renderer;
+
+use std::cell::Cell;
 
 use anyhow::Result;
-use matrix::{Matrix, Vector};
-use renderer::Renderer;
+use engine::{Engine, GameObject};
 
-pub type Matrix4 = Matrix<4, 4, f32>;
-pub type Vector2 = Vector<3, f32>;
-pub type Vector3 = Vector<3, f32>;
-pub type Vector4 = Vector<4, f32>;
+struct AAA<'a> {
+    pub aaa: &'a mut Cell<GameObject>,
+}
 
 fn main() -> Result<()> {
-    let mut renderer = Renderer::new()?;
-    renderer.run()?;
+    let mut engine = Engine::new()?;
+    engine.run()?;
     Ok(())
 }

@@ -363,28 +363,14 @@ where
 
 impl Matrix<4, 4, f32> {
     pub fn projection(fov: f32, ratio: f32, near: f32, far: f32) -> Matrix<4, 4, f32> {
-        let mut result = Matrix::default();
-    
-        let fov_tan = (fov * 0.5 * std::f32::consts::PI / 180.).tan();
-        let half_height = near * fov_tan;
-        let half_width = half_height * ratio;
-    
-        let left   = -half_width;
-        let right  =  half_width;
-        let top    =  half_height;
-        let bottom = -half_height;
-    
-        result[0][0] = (2. * near) / (right - left);
-        result[0][2] = (right + left) / (right - left);
-    
-        result[1][1] = (2. * near) / (top - bottom);
-        result[1][2] = (top + bottom) / (top - bottom);
-    
-        result[2][2] = -(far + near) / (far - near);
-        result[3][2] = -(2. * far * near) / (far - near);
-    
-        result[2][3] = -1.;
-    
-        result
+        let fov_rad = (std::f32::consts::PI / 180.) * fov;
+        let b = (fov_rad / 2.).tan();
+
+        return Matrix::from([
+            [1. / (ratio * b), 0., 0., 0.],
+            [0., 1. / b, 0., 0.],
+            [0., 0., far / (far - near), -(far * near) / (far - near)],
+            [0., 0., 1., 0.],
+        ]);
     }
 }

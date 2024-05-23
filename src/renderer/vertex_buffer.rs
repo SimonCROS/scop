@@ -3,15 +3,11 @@ use std::mem;
 use anyhow::{Context, Result};
 use ash::{util::Align, vk, Device};
 
+use crate::engine::mesh::Vertex;
+
 use super::device::RendererDevice;
 
 const VERTEX_BUFFER_SIZE: vk::DeviceSize = 1024 * 1024 * 10; // 10 MB
-
-#[derive(Clone, Debug, Copy)]
-pub struct Vertex {
-    pub pos: [f32; 4],
-    pub color: [f32; 4],
-}
 
 pub struct VertexBuffer {
     pub buffer: vk::Buffer,

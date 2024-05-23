@@ -1,6 +1,6 @@
 use matrix::traits::Dot;
 
-use crate::{Matrix4, Vector3};
+use crate::math::{Matrix4, Vector3};
 
 pub struct Camera {
     velocity: Vector3,

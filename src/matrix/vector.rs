@@ -1,4 +1,4 @@
-use crate::traits::{Dot, Field};
+use crate::traits::{Dot, Field, One, Zero};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
@@ -47,6 +47,24 @@ where
     }
 }
 
+impl<const SIZE: usize, K> Zero for Vector<SIZE, K>
+where
+    K: Field,
+{
+    fn zero() -> Self {
+        Self([K::zero(); SIZE])
+    }
+}
+
+impl<const SIZE: usize, K> One for Vector<SIZE, K>
+where
+    K: Field,
+{
+    fn one() -> Self {
+        Self([K::one(); SIZE])
+    }
+}
+
 impl<K> Vector<3, K>
 where
     K: Field,
@@ -76,6 +94,26 @@ where
     /// Complexity `O(1)`
     fn from(content: [K; SIZE]) -> Self {
         Self(content)
+    }
+}
+
+impl<K> From<[K; 3]> for Vector<4, K>
+where
+    K: Field,
+{
+    /// Complexity `O(1)`
+    fn from(content: [K; 3]) -> Self {
+        Self([content[0], content[1], content[2], K::one()])
+    }
+}
+
+impl<K> From<[K; 2]> for Vector<3, K>
+where
+    K: Field,
+{
+    /// Complexity `O(1)`
+    fn from(content: [K; 2]) -> Self {
+        Self([content[0], content[1], K::zero()])
     }
 }
 
@@ -240,6 +278,16 @@ where
     }
 }
 
+impl Vector<2, f32> {
+    pub fn x(&self) -> f32 {
+        self.0[0]
+    }
+
+    pub fn y(&self) -> f32 {
+        self.0[1]
+    }
+}
+
 impl Vector<3, f32> {
     pub fn x(&self) -> f32 {
         self.0[0]
@@ -278,5 +326,23 @@ impl Vector<3, f32> {
     pub fn normalize(&self) -> Self {
         let norm = self.norm();
         Self([self.0[0] / norm, self.0[1] / norm, self.0[2] / norm])
+    }
+}
+
+impl Vector<4, f32> {
+    pub fn x(&self) -> f32 {
+        self.0[0]
+    }
+
+    pub fn y(&self) -> f32 {
+        self.0[1]
+    }
+
+    pub fn z(&self) -> f32 {
+        self.0[2]
+    }
+
+    pub fn w(&self) -> f32 {
+        self.0[3]
     }
 }

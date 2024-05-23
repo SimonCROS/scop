@@ -6,7 +6,9 @@ use std::{
 use anyhow::Result;
 use ash::vk;
 
-use super::{device::RendererDevice, shader::Shader, vertex_buffer::Vertex};
+use crate::engine::mesh::Vertex;
+
+use super::{device::RendererDevice, shader::Shader};
 
 pub struct RendererPipeline {
     pub pipeline: vk::Pipeline,
@@ -42,7 +44,7 @@ impl RendererPipeline {
                 location: 0,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, pos) as u32,
+                offset: offset_of!(Vertex, position) as u32,
             },
             vk::VertexInputAttributeDescription {
                 location: 1,
