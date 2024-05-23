@@ -1,14 +1,17 @@
-use std::{
-    ffi,
-    mem::{self, offset_of},
-};
+use core::slice;
+use std::{ffi, mem};
 
 use anyhow::Result;
-use ash::vk;
+use ash::vk::{self, PushConstantRange, ShaderStageFlags};
 
-use crate::engine::mesh::Vertex;
+use crate::{engine::mesh::Vertex, math::{Matrix3, Matrix4}};
 
 use super::{device::RendererDevice, shader::Shader};
+
+pub struct SimplePushConstantData {
+    pub model_matrix: Matrix4,
+    pub normal_matrix: Matrix3,
+}
 
 pub struct RendererPipeline {
     pub pipeline: vk::Pipeline,
@@ -39,37 +42,22 @@ impl RendererPipeline {
             frag.shader_stage(&entry_point),
         ];
 
-        let vertex_input_attribute_descriptions = [
-            vk::VertexInputAttributeDescription {
-                location: 0,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, position) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 1,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
-            },
-        ];
-        let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: mem::size_of::<Vertex>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }];
+        let (pipeline_layout, pipeline) = {
+            let vertex_input_attribute_descriptions =
+                Vertex::get_vertex_input_attribute_descriptions();
+            let vertex_input_binding_descriptions = Vertex::get_vertex_input_binding_descriptions();
+            let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
+                .vertex_attribute_descriptions(vertex_input_attribute_descriptions.as_slice())
+                .vertex_binding_descriptions(vertex_input_binding_descriptions.as_slice());
 
-        let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
-            .vertex_binding_descriptions(&vertex_input_binding_descriptions);
-
-        let (pipeline_layout, pipeline) = Self::create_graphics_pipeline(
-            &device.logical_device,
-            render_pass,
-            extent,
-            vertex_input_info,
-            &shader_stages,
-        )?;
+            Self::create_graphics_pipeline(
+                &device.logical_device,
+                render_pass,
+                extent,
+                vertex_input_info,
+                &shader_stages,
+            )?
+        };
 
         unsafe {
             vert.cleanup(&device.logical_device);
@@ -150,7 +138,13 @@ impl RendererPipeline {
 
         // pipeline:
 
-        let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder();
+        let push_constant_range = PushConstantRange::builder()
+            .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
+            .offset(0)
+            .size(mem::size_of::<SimplePushConstantData>() as u32);
+
+        let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
+            .push_constant_ranges(slice::from_ref(&push_constant_range));
         let pipeline_layout =
             unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
 

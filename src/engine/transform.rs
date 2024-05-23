@@ -4,9 +4,9 @@ use crate::math::{Matrix3, Matrix4, Up, Vector3};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transform {
-    translation: Vector3,
-    scale: Vector3,
-    rotation: Vector3,
+    pub translation: Vector3,
+    pub scale: Vector3,
+    pub rotation: Vector3,
 }
 
 impl Transform {

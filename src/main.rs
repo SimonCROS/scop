@@ -3,6 +3,7 @@
 mod engine;
 mod math;
 mod renderer;
+mod utils;
 
 use std::cell::Cell;
 

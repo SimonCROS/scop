@@ -10,7 +10,8 @@ const INDEX_BUFFER_SIZE: vk::DeviceSize = 1024 * 1024 * 10; // 10 MB
 pub struct IndexBuffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
-    pub current_size: vk::DeviceSize, // in bytes
+    pub length: usize,
+    pub size: vk::DeviceSize, // in bytes
 }
 
 impl IndexBuffer {
@@ -52,7 +53,8 @@ impl IndexBuffer {
         Ok(IndexBuffer {
             buffer,
             memory,
-            current_size: 0,
+            length: 0,
+            size: 0,
         })
     }
 
@@ -75,7 +77,8 @@ impl IndexBuffer {
         align.copy_from_slice(indices);
         device.unmap_memory(self.memory);
 
-        self.current_size = size;
+        self.length = indices.len();
+        self.size = size;
 
         Ok(())
     }

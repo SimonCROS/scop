@@ -12,7 +12,8 @@ const VERTEX_BUFFER_SIZE: vk::DeviceSize = 1024 * 1024 * 10; // 10 MB
 pub struct VertexBuffer {
     pub buffer: vk::Buffer,
     pub memory: vk::DeviceMemory,
-    pub current_size: vk::DeviceSize, // in bytes
+    pub length: usize,
+    pub size: vk::DeviceSize, // in bytes
 }
 
 impl VertexBuffer {
@@ -54,7 +55,8 @@ impl VertexBuffer {
         Ok(VertexBuffer {
             buffer,
             memory,
-            current_size: 0,
+            length: 0,
+            size: 0,
         })
     }
 
@@ -80,7 +82,8 @@ impl VertexBuffer {
         let end = std::time::Instant::now();
         println!("Elapsed time: {:?}", end.duration_since(start));
 
-        self.current_size = size;
+        self.length = vertices.len();
+        self.size = size;
 
         Ok(())
     }

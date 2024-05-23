@@ -17,13 +17,16 @@ use std::{
 };
 
 use anyhow::Result;
-use ash::{extensions::ext, vk};
+use ash::{
+    extensions::ext,
+    vk::{self, ShaderStageFlags},
+};
 
 use crate::engine::GameObject;
 
 use self::{
     command_pools::CommandPools, debug::RendererDebug, device::RendererDevice,
-    pipeline::RendererPipeline, swapchain::RendererSwapchain,
+    pipeline::{RendererPipeline, SimplePushConstantData}, swapchain::RendererSwapchain,
 };
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
@@ -151,7 +154,22 @@ impl Renderer {
                     );
 
                     for go in game_objects.values() {
-                        if let Some(mesh) = &go.borrow().mesh {
+                        let game_object = go.borrow();
+
+                        if let Some(mesh) = &game_object.mesh {
+                            let push = SimplePushConstantData {
+                                model_matrix: game_object.transform.mat(),
+                                normal_matrix: game_object.transform.normal_matrix(),
+                            };
+
+                            self.main_device.logical_device.cmd_push_constants(
+                                command_buffer,
+                                self.graphics_pipeline.pipeline_layout,
+                                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                                0,
+                                crate::utils::any_as_u8_slice(&push),
+                            );
+
                             mesh.bind(command_buffer);
                             mesh.draw(command_buffer);
                         }

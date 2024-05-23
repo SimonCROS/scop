@@ -10,7 +10,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use anyhow::Result;
 pub use components::*;
 pub use game_object::*;
-use matrix::traits::Zero;
+use matrix::traits::{One, Zero};
 pub use transform::*;
 
 use crate::{math::{Up, Vector2, Vector3}, renderer::{window::RendererWindow, Renderer}};
@@ -44,32 +44,26 @@ impl Engine {
     pub fn run(&mut self) -> Result<()> {
         let vertices = vec![
             Vertex {
-                position: [1.0, 1.0, 0.0].into(),
+                position: [-0.2, 0.2, 0.0].into(),
                 color: [0.0, 0.0, 1.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
-                position: [-1.0, -1.0, 0.0].into(),
+                position: [0.2, 0.2, 0.0].into(),
                 color: [0.0, 1.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
-                position: [1.0, -1.0, 0.0].into(),
-                color: [1.0, 0.0, 0.0].into(),
-                normal: Vector3::up(),
-                uv: Vector2::zero(),
-            },
-            Vertex {
-                position: [-1.0, 1.0, 0.0].into(),
+                position: [0.0, -0.2, 0.0].into(),
                 color: [1.0, 0.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
         ];
 
-        let indices = vec![0, 1, 2, 0, 1, 3];
+        let indices = vec![0, 1, 2];
 
         let m = Rc::new(Mesh::builder(self.renderer.main_device.clone())
             .vertices(&vertices)
@@ -79,10 +73,12 @@ impl Engine {
         GameObject::builder(self)
             .name("Hello World 1")
             .mesh(m.clone())
+            .transform(Transform { translation: [0.2, 0., 0.].into(), scale: Vector3::one(), rotation: Vector3::up() })
             .build();
         GameObject::builder(self)
             .name("Hello World 2")
             .mesh(m.clone())
+            .transform(Transform { translation: [-0.8, 0.4, 0.].into(), scale: Vector3::one(), rotation: Vector3::up() })
             .build();
         GameObject::builder(self)
             .name("Hello World 3")

@@ -3,9 +3,9 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 use super::{mesh::Mesh, Component, Engine, Transform};
 
 pub struct GameObject {
-    name: Option<String>,
-    transform: Transform,
-    components: HashSet<Box<dyn Component>>,
+    pub name: Option<String>,
+    pub transform: Transform,
+    pub components: HashSet<Box<dyn Component>>,
     pub mesh: Option<Rc<Mesh>>,
 }
 
@@ -18,10 +18,6 @@ pub struct GameObjectBuilder<'a> {
 }
 
 impl GameObject {
-    pub fn test(&self) {
-        print!("HEY!")
-    }
-
     pub fn builder<'a>(engine: &'a mut Engine) -> GameObjectBuilder<'a> {
         GameObjectBuilder {
             engine,
