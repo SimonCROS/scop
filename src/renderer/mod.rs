@@ -7,6 +7,7 @@ pub mod shader;
 pub mod swapchain;
 pub mod vertex_buffer;
 pub mod window;
+pub mod scop_buffer;
 
 use core::slice;
 use std::{

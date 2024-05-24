@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use ash::{
-    self, prelude::VkResult, vk::{
+    prelude::VkResult, vk::{
         self, DeviceCreateInfo, DeviceQueueCreateInfo, PhysicalDevice, PhysicalDeviceType, Queue, QueueFlags
     }, Instance
 };

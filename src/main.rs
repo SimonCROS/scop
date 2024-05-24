@@ -5,14 +5,8 @@ mod math;
 mod renderer;
 mod utils;
 
-use std::cell::Cell;
-
 use anyhow::Result;
-use engine::{Engine, GameObject};
-
-struct AAA<'a> {
-    pub aaa: &'a mut Cell<GameObject>,
-}
+use engine::Engine;
 
 fn main() -> Result<()> {
     let mut engine = Engine::new()?;

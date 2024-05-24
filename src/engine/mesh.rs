@@ -1,16 +1,17 @@
 use std::{
-    mem::{self, offset_of},
+    mem::{self, offset_of, size_of},
     rc::Rc,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Ok, Result};
 use ash::vk::{
-    self, CommandBuffer, VertexInputAttributeDescription, VertexInputBindingDescription,
+    self, BufferUsageFlags, CommandBuffer, MemoryPropertyFlags, VertexInputAttributeDescription,
+    VertexInputBindingDescription, WHOLE_SIZE,
 };
 
 use crate::{
     math::{Vector2, Vector3, Vector4},
-    renderer::{device::RendererDevice, index_buffer::IndexBuffer, vertex_buffer::VertexBuffer},
+    renderer::{device::RendererDevice, scop_buffer::ScopBuffer},
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -23,8 +24,8 @@ pub struct Vertex {
 
 pub struct Mesh {
     device: Rc<RendererDevice>,
-    vertex_buffer: VertexBuffer,
-    index_buffer: Option<IndexBuffer>,
+    vertex_buffer: ScopBuffer,
+    index_buffer: Option<ScopBuffer>,
 }
 
 pub struct MeshBuilder<'a> {
@@ -103,7 +104,7 @@ impl Mesh {
         if let Some(index_buffer) = &self.index_buffer {
             self.device.logical_device.cmd_draw_indexed(
                 command_buffer,
-                index_buffer.length as u32,
+                index_buffer.instance_count as u32,
                 1,
                 0,
                 0,
@@ -112,7 +113,7 @@ impl Mesh {
         } else {
             self.device.logical_device.cmd_draw(
                 command_buffer,
-                self.vertex_buffer.length as u32,
+                self.vertex_buffer.instance_count as u32,
                 1,
                 0,
                 0,
@@ -121,10 +122,10 @@ impl Mesh {
     }
 
     pub unsafe fn cleanup(self) {
-        let logical_device = &self.device.logical_device;
-
-        self.index_buffer.inspect(|b| b.cleanup(logical_device));
-        self.vertex_buffer.cleanup(logical_device);
+        if let Some(index_buffer) = self.index_buffer {
+            index_buffer.cleanup();
+        }
+        self.vertex_buffer.cleanup();
     }
 }
 
@@ -144,17 +145,35 @@ impl<'a> MeshBuilder<'a> {
             let vertices = self
                 .vertices
                 .context("Cannot build a Mesh without vertices.")?;
-            let mut vertex_buffer = VertexBuffer::new(&self.device)?;
-            vertex_buffer.set_vertices_from_slice(&self.device.logical_device, &vertices)?;
+            let vertices_count = vertices.len();
+            let mut vertex_buffer = ScopBuffer::new(
+                self.device.clone(),
+                vertices_count,
+                size_of::<Vertex>() as vk::DeviceSize,
+                BufferUsageFlags::VERTEX_BUFFER,
+                MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
+                1,
+            )?;
+            vertex_buffer.map(WHOLE_SIZE, 0)?;
+            vertex_buffer.write_to_buffer(&vertices, 0);
+            vertex_buffer.unmap();
 
-            let index_buffer = match self.indices {
-                Some(indices) => {
-                    let mut index_buffer = IndexBuffer::new(&self.device)?;
-                    index_buffer.set_indices_from_slice(&self.device.logical_device, indices)?;
-                    Some(index_buffer)
-                }
-                None => None,
-            };
+            let index_buffer = self.indices.map_or(Ok(None), |indices| {
+                let indices_count = indices.len();
+                let mut index_buffer = ScopBuffer::new(
+                    self.device.clone(),
+                    indices_count,
+                    size_of::<u32>() as vk::DeviceSize,
+                    BufferUsageFlags::INDEX_BUFFER,
+                    MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
+                    1,
+                )?;
+                index_buffer.map(WHOLE_SIZE, 0)?;
+                index_buffer.write_to_buffer(&indices, 0);
+                index_buffer.unmap();
+
+                Ok(Some(index_buffer))
+            })?;
 
             Ok(Mesh {
                 device: self.device,

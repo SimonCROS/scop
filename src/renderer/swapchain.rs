@@ -3,6 +3,8 @@ use core::slice;
 use anyhow::Result;
 use ash::{extensions, vk, Device};
 
+use crate::engine::camera::GpuCameraData;
+
 use super::{device::RendererDevice, window::RendererWindow};
 
 pub struct RendererSwapchain {

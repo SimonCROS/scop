@@ -3,32 +3,59 @@ use matrix::traits::Dot;
 use crate::math::{Matrix4, Vector3};
 
 pub struct Camera {
-    velocity: Vector3,
-    position: Vector3,
+    projection_matrix: Matrix4,
     view_matrix: Matrix4,
+    inverse_view_matrix: Matrix4,
+}
+
+pub struct GpuCameraData {
+    projection_matrix: Matrix4,
+    view_matrix: Matrix4,
+    inverse_view_matrix: Matrix4,
 }
 
 impl Camera {
-    // pub fn get_view_matrix(&self) -> Matrix4 {
-    //     // to create a correct model view, we need to move the world in opposite
-    //     // direction to the camera
-    //     //  so we will create the camera model matrix and invert
-    //     Matrix::<4, 4, f32>::identity()
-    //         .translate(&-self.position)
-    //         .rotate_y(-self.yaw)
-    //         .rotate_x(-self.pitch);
-    //     let camera_translation = translate(&Mat4::identity(), self.position);
-    //     let camera_rotation = self.get_rotation_matrix();
-    //     inverse(&(camera_translation * camera_rotation))
-    // }
+    pub fn set_orthographic_projection(
+        &mut self,
+        left: f32,
+        right: f32,
+        top: f32,
+        bottom: f32,
+        near: f32,
+        far: f32,
+    ) {
+    }
 
-    // fn get_rotation_matrix(&self) -> Matrix4 {
-    //     // fairly typical FPS style camera. we join the pitch and yaw rotations into
-    //     // the final rotation matrix
-    //     let pitch_rotation = Vector3::from([1.0, 0.0, 0.0]).(self.pitch);
-    //     let yaw_rotation = angle_axis(self.yaw, &glm::vec3(0.0, -1.0, 0.0));
-    //     to_mat4(&yaw_rotation) * to_mat4(&pitch_rotation)
-    // }
+    pub fn set_perspective_projection(&mut self, fovy: f32, aspect: f32, near: f32, far: f32) {
+        assert!((aspect - f32::EPSILON).abs() > 0f32);
+
+        let tan_half_fovy = (fovy / 2f32).tan();
+        self.projection_matrix[0][0] = 1f32 / (aspect * tan_half_fovy);
+        self.projection_matrix[1][1] = 1f32 / (tan_half_fovy);
+        self.projection_matrix[2][2] = far / (far - near);
+        self.projection_matrix[2][3] = 1f32;
+        self.projection_matrix[3][2] = -(far * near) / (far - near);
+    }
+
+    pub fn get_projection(&self) -> &Matrix4 {
+        &self.projection_matrix
+    }
+
+    pub fn get_view(&self) -> &Matrix4 {
+        &self.view_matrix
+    }
+
+    pub fn get_inverse_view(&self) -> &Matrix4 {
+        &self.inverse_view_matrix
+    }
+
+    pub fn get_position(&self) -> Vector3 {
+        Vector3::from([
+            self.inverse_view_matrix[0][0],
+            self.inverse_view_matrix[1][0],
+            self.inverse_view_matrix[2][0],
+        ])
+    }
 
     pub fn set_view_direction(&mut self, position: Vector3, direction: Vector3, up: Vector3) {
         let w = direction.normalize();
@@ -47,6 +74,19 @@ impl Camera {
         self.view_matrix[3][0] = -u.dot(&position);
         self.view_matrix[3][1] = -v.dot(&position);
         self.view_matrix[3][2] = -w.dot(&position);
+
+        self.inverse_view_matrix[0][0] = u.x();
+        self.inverse_view_matrix[0][1] = u.y();
+        self.inverse_view_matrix[0][2] = u.z();
+        self.inverse_view_matrix[1][0] = v.x();
+        self.inverse_view_matrix[1][1] = v.y();
+        self.inverse_view_matrix[1][2] = v.z();
+        self.inverse_view_matrix[2][0] = w.x();
+        self.inverse_view_matrix[2][1] = w.y();
+        self.inverse_view_matrix[2][2] = w.z();
+        self.inverse_view_matrix[3][0] = position.x();
+        self.inverse_view_matrix[3][1] = position.y();
+        self.inverse_view_matrix[3][2] = position.z();
     }
 
     pub fn set_view_target(&mut self, position: Vector3, target: Vector3, up: Vector3) {
@@ -77,5 +117,18 @@ impl Camera {
         self.view_matrix[3][0] = -u.dot(&position);
         self.view_matrix[3][1] = -v.dot(&position);
         self.view_matrix[3][2] = -w.dot(&position);
+
+        self.inverse_view_matrix[0][0] = u.x();
+        self.inverse_view_matrix[0][1] = u.y();
+        self.inverse_view_matrix[0][2] = u.z();
+        self.inverse_view_matrix[1][0] = v.x();
+        self.inverse_view_matrix[1][1] = v.y();
+        self.inverse_view_matrix[1][2] = v.z();
+        self.inverse_view_matrix[2][0] = w.x();
+        self.inverse_view_matrix[2][1] = w.y();
+        self.inverse_view_matrix[2][2] = w.z();
+        self.inverse_view_matrix[3][0] = position.x();
+        self.inverse_view_matrix[3][1] = position.y();
+        self.inverse_view_matrix[3][2] = position.z();
     }
 }
