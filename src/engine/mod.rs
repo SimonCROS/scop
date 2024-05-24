@@ -88,7 +88,7 @@ impl Engine {
             GameObject::builder(self)
                 .name("Hello World")
                 .mesh(m.clone())
-                .transform(Transform { translation: [xs[i] * 2. - 1., ys[i] * 2. - 1., 0.].into(), scale: Vector3::one(), rotation: Vector3::zero()})
+                .transform(Transform { translation: [xs[i] * 2. - 1., ys[i] * 2. - 1., xs[i] * ys[i]].into(), scale: Vector3::one(), rotation: Vector3::zero()})
                 .build();
         }
 

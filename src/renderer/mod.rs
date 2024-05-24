@@ -3,11 +3,11 @@ pub mod debug;
 pub mod device;
 pub mod index_buffer;
 pub mod pipeline;
+pub mod scop_buffer;
 pub mod shader;
 pub mod swapchain;
 pub mod vertex_buffer;
 pub mod window;
-pub mod scop_buffer;
 
 use core::slice;
 use std::{
@@ -26,8 +26,11 @@ use ash::{
 use crate::engine::GameObject;
 
 use self::{
-    command_pools::CommandPools, debug::RendererDebug, device::RendererDevice,
-    pipeline::{RendererPipeline, SimplePushConstantData}, swapchain::RendererSwapchain,
+    command_pools::CommandPools,
+    debug::RendererDebug,
+    device::RendererDevice,
+    pipeline::{RendererPipeline, SimplePushConstantData},
+    swapchain::RendererSwapchain,
 };
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
@@ -86,8 +89,8 @@ impl Renderer {
         let render_pass = Self::create_render_pass(&main_device, &window)?;
 
         let mut swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
-        swapchain.create_framebuffers(&main_device, render_pass)?;
         unsafe { swapchain.create_depth_resources(&main_device)? };
+        swapchain.create_framebuffers(&main_device, render_pass)?;
 
         let graphics_pipeline = RendererPipeline::new(&main_device, swapchain.extent, render_pass)?;
 
@@ -226,35 +229,63 @@ impl Renderer {
     ) -> Result<vk::RenderPass> {
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.first().unwrap();
-        // let surface_format = surface_formats.iter().find(|s| ).first().unwrap();
+        let depth_format = unsafe {
+            device.find_supported_format(
+                vec![
+                    vk::Format::D32_SFLOAT,
+                    vk::Format::D32_SFLOAT_S8_UINT,
+                    vk::Format::D24_UNORM_S8_UINT,
+                ],
+                vk::ImageTiling::OPTIMAL,
+                vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
+            )?
+        };
 
-        let attachments = [vk::AttachmentDescription::builder()
-            .format(surface_format.format)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
-            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-            .build()];
+        let attachments = [
+            vk::AttachmentDescription::builder()
+                .format(surface_format.format)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+                .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+                .build(),
+            vk::AttachmentDescription::builder()
+                .format(depth_format)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+                .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .final_layout(vk::ImageLayout::ATTACHMENT_OPTIMAL)
+                .build(),
+        ];
 
         let color_attachment_references = [vk::AttachmentReference::builder()
             .attachment(0)
             .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .build()];
 
+        let depth_attachment_references = vk::AttachmentReference::builder()
+            .attachment(1)
+            .layout(vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL)
+            .build();
+
         let subpasses = [vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
             .color_attachments(&color_attachment_references)
+            .depth_stencil_attachment(&depth_attachment_references)
             .build()];
 
         let subpass_dependencies = [vk::SubpassDependency::builder()
             .src_subpass(vk::SUBPASS_EXTERNAL)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
+            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
             .dst_access_mask(
-                vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
             )
             .build()];
 
@@ -348,11 +379,19 @@ impl Renderer {
         framebuffer: vk::Framebuffer,
         f: F,
     ) {
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 1.0],
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 1.0],
+                },
             },
-        }];
+            vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue {
+                    depth: 1f32,
+                    stencil: 0,
+                },
+            },
+        ];
 
         let render_pass_info = vk::RenderPassBeginInfo::builder()
             .render_pass(render_pass)

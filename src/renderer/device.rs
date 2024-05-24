@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Ok, Result};
 use ash::{
     prelude::VkResult,
     vk::{
@@ -148,7 +148,7 @@ impl RendererDevice {
         formats: Vec<vk::Format>,
         tiling: vk::ImageTiling,
         features: vk::FormatFeatureFlags,
-    ) -> vk::Format {
+    ) -> Result<vk::Format> {
         for format in formats {
             let properties = self
                 .instance
@@ -157,14 +157,14 @@ impl RendererDevice {
             if tiling == vk::ImageTiling::LINEAR
                 && (properties.linear_tiling_features & features) == features
             {
-                return format;
+                return Ok(format);
             } else if tiling == vk::ImageTiling::OPTIMAL
                 && (properties.optimal_tiling_features & features) == features
             {
-                return format;
+                return Ok(format);
             }
         }
-        unimplemented!()
+        bail!("Cannot find satisfying format")
     }
 
     pub unsafe fn cleanup(&self) {

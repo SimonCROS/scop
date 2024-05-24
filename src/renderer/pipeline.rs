@@ -2,7 +2,7 @@ use core::slice;
 use std::{ffi, mem};
 
 use anyhow::Result;
-use ash::vk::{self, PushConstantRange, ShaderStageFlags};
+use ash::vk::{self, PipelineDepthStencilStateCreateInfo, PushConstantRange, ShaderStageFlags};
 
 use crate::{engine::mesh::Vertex, math::{Matrix3, Matrix4}};
 
@@ -148,6 +148,15 @@ impl RendererPipeline {
         let pipeline_layout =
             unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
 
+        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
+            .depth_test_enable(true)
+            .depth_write_enable(true)
+            .depth_compare_op(vk::CompareOp::LESS)
+            .depth_bounds_test_enable(false)
+            .min_depth_bounds(0f32)
+            .max_depth_bounds(1f32)
+            .stencil_test_enable(false);
+
         let pipeline_infos = [vk::GraphicsPipelineCreateInfo::builder()
             .stages(shader_stages)
             .vertex_input_state(&vertex_input_info)
@@ -158,6 +167,7 @@ impl RendererPipeline {
             .color_blend_state(&color_blend_info)
             .layout(pipeline_layout)
             .render_pass(render_pass)
+            .depth_stencil_state(&depth_stencil_state)
             .subpass(0)
             .build()];
 
