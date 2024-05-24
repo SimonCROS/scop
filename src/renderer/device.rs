@@ -1,8 +1,13 @@
+use std::rc::Rc;
+
 use anyhow::{bail, Context, Result};
 use ash::{
-    prelude::VkResult, vk::{
-        self, DeviceCreateInfo, DeviceQueueCreateInfo, PhysicalDevice, PhysicalDeviceType, Queue, QueueFlags
-    }, Instance
+    prelude::VkResult,
+    vk::{
+        self, DeviceCreateInfo, DeviceQueueCreateInfo, PhysicalDevice, PhysicalDeviceType, Queue,
+        QueueFlags,
+    },
+    Instance,
 };
 
 pub struct QueueFamily {
@@ -12,6 +17,7 @@ pub struct QueueFamily {
 }
 
 pub struct RendererDevice {
+    pub instance: Rc<Instance>,
     pub physical_device: PhysicalDevice,
     pub logical_device: ash::Device,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties,
@@ -19,7 +25,7 @@ pub struct RendererDevice {
 }
 
 impl RendererDevice {
-    fn pick_physical_device(instance: &Instance) -> Result<Option<PhysicalDevice>> {
+    fn pick_physical_device(instance: &Rc<Instance>) -> Result<Option<PhysicalDevice>> {
         let physical_devices = unsafe { instance.enumerate_physical_devices() }?;
 
         let mut choosen = None;
@@ -27,7 +33,9 @@ impl RendererDevice {
         for physical_device in physical_devices {
             let props = unsafe { instance.get_physical_device_properties(physical_device) };
 
-            if props.device_type == PhysicalDeviceType::DISCRETE_GPU || props.device_type == PhysicalDeviceType::INTEGRATED_GPU {
+            if props.device_type == PhysicalDeviceType::DISCRETE_GPU
+                || props.device_type == PhysicalDeviceType::INTEGRATED_GPU
+            {
                 choosen = Some(physical_device)
             }
         }
@@ -36,7 +44,7 @@ impl RendererDevice {
     }
 
     fn pick_queue_families(
-        instance: &Instance,
+        instance: &Rc<Instance>,
         physical_device: PhysicalDevice,
     ) -> Vec<QueueFamily> {
         let props =
@@ -55,7 +63,7 @@ impl RendererDevice {
     }
 
     fn create_logical_device(
-        instance: &Instance,
+        instance: &Rc<Instance>,
         physical_device: PhysicalDevice,
         queue_families: &Vec<QueueFamily>,
     ) -> VkResult<ash::Device> {
@@ -80,7 +88,7 @@ impl RendererDevice {
         unsafe { instance.create_device(physical_device, &create_info, None) }
     }
 
-    pub fn new(instance: &Instance) -> Result<Self> {
+    pub fn new(instance: &Rc<Instance>) -> Result<Self> {
         dbg!("New device");
 
         let physical_device =
@@ -100,9 +108,11 @@ impl RendererDevice {
                 .push(unsafe { logical_device.get_device_queue(family.index, 0) })
         });
 
-        let device_memory_properties = unsafe { instance.get_physical_device_memory_properties(physical_device) };
+        let device_memory_properties =
+            unsafe { instance.get_physical_device_memory_properties(physical_device) };
 
         Ok(Self {
+            instance: instance.clone(),
             physical_device,
             logical_device,
             memory_properties: device_memory_properties,
@@ -116,6 +126,45 @@ impl RendererDevice {
 
     pub fn main_graphics_queue_family(&self) -> &QueueFamily {
         self.queue_family(QueueFlags::GRAPHICS).unwrap()
+    }
+
+    pub fn find_memorytype_index(
+        memory_req: &vk::MemoryRequirements,
+        memory_prop: &vk::PhysicalDeviceMemoryProperties,
+        flags: vk::MemoryPropertyFlags,
+    ) -> Option<u32> {
+        memory_prop.memory_types[..memory_prop.memory_type_count as _]
+            .iter()
+            .enumerate()
+            .find(|(index, memory_type)| {
+                (1 << index) & memory_req.memory_type_bits != 0
+                    && memory_type.property_flags & flags == flags
+            })
+            .map(|(index, _memory_type)| index as _)
+    }
+
+    pub unsafe fn find_supported_format(
+        &self,
+        formats: Vec<vk::Format>,
+        tiling: vk::ImageTiling,
+        features: vk::FormatFeatureFlags,
+    ) -> vk::Format {
+        for format in formats {
+            let properties = self
+                .instance
+                .get_physical_device_format_properties(self.physical_device, format);
+
+            if tiling == vk::ImageTiling::LINEAR
+                && (properties.linear_tiling_features & features) == features
+            {
+                return format;
+            } else if tiling == vk::ImageTiling::OPTIMAL
+                && (properties.optimal_tiling_features & features) == features
+            {
+                return format;
+            }
+        }
+        unimplemented!()
     }
 
     pub unsafe fn cleanup(&self) {

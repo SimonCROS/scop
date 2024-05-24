@@ -38,7 +38,7 @@ pub struct Renderer {
         reason = "Segfaults when destroy device if not in the struct"
     )]
     entry: ash::Entry,
-    pub instance: ash::Instance,
+    pub instance: Rc<ash::Instance>,
     pub debug: RendererDebug,
     pub window: RendererWindow,
     pub main_device: Rc<RendererDevice>,
@@ -75,6 +75,7 @@ impl Renderer {
         )?);
 
         let instance = Self::create_instance(&entry, &layers_names_raw, &extension_names)?;
+        let instance = Rc::new(instance);
 
         let window = RendererWindow::new(event_loop, window, &entry, &instance)?;
 
@@ -86,6 +87,7 @@ impl Renderer {
 
         let mut swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
         swapchain.create_framebuffers(&main_device, render_pass)?;
+        unsafe { swapchain.create_depth_resources(&main_device)? };
 
         let graphics_pipeline = RendererPipeline::new(&main_device, swapchain.extent, render_pass)?;
 

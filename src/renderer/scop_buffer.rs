@@ -116,7 +116,7 @@ impl ScopBuffer {
 
         let memory_req = device.logical_device.get_buffer_memory_requirements(buffer);
 
-        let buffer_memory_index = Self::find_memorytype_index(
+        let buffer_memory_index = RendererDevice::find_memorytype_index(
             &memory_req,
             &device.memory_properties,
             memory_property_flags,
@@ -137,52 +137,4 @@ impl ScopBuffer {
 
         Ok((buffer, memory))
     }
-
-    fn find_memorytype_index(
-        memory_req: &vk::MemoryRequirements,
-        memory_prop: &vk::PhysicalDeviceMemoryProperties,
-        flags: vk::MemoryPropertyFlags,
-    ) -> Option<u32> {
-        memory_prop.memory_types[..memory_prop.memory_type_count as _]
-            .iter()
-            .enumerate()
-            .find(|(index, memory_type)| {
-                (1 << index) & memory_req.memory_type_bits != 0
-                    && memory_type.property_flags & flags == flags
-            })
-            .map(|(index, _memory_type)| index as _)
-    }
 }
-//   ~ScopBuffer();
-
-//   ScopBuffer(const ScopBuffer&) = delete;
-//   ScopBuffer& operator=(const ScopBuffer&) = delete;
-
-//   VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-//   void unmap();
-
-//   void writeToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-//   VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-//   VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-//   VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-
-//   void writeToIndex(void* data, int index);
-//   VkResult flushIndex(int index);
-//   VkDescriptorBufferInfo descriptorInfoForIndex(int index);
-//   VkResult invalidateIndex(int index);
-
-//   VkBuffer getBuffer() const { return buffer; }
-//   void* getMappedMemory() const { return mapped; }
-//   uint32_t getInstanceCount() const { return instanceCount; }
-//   VkDeviceSize getInstanceSize() const { return instanceSize; }
-//   VkDeviceSize getAlignmentSize() const { return instanceSize; }
-//   VkBufferUsageFlags getUsageFlags() const { return usageFlags; }
-//   VkMemoryPropertyFlags getMemoryPropertyFlags() const { return memoryPropertyFlags; }
-//   VkDeviceSize getBufferSize() const { return bufferSize; }
-
-//  private:
-//   static VkDeviceSize getAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);
-
-// };
-
-// }  // namespace lve

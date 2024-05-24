@@ -1,7 +1,15 @@
 use core::slice;
 
-use anyhow::Result;
-use ash::{extensions, vk, Device};
+use anyhow::{Context, Result};
+use ash::{
+    extensions,
+    vk::{
+        self, Extent3DBuilder, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo,
+        ImageSubresourceRange, ImageTiling, ImageUsageFlags, ImageViewCreateInfo,
+        MemoryAllocateInfo, PhysicalDeviceMemoryProperties, SampleCountFlags,
+    },
+    Device,
+};
 
 use crate::engine::camera::GpuCameraData;
 
@@ -13,6 +21,9 @@ pub struct RendererSwapchain {
     pub image_views: Vec<vk::ImageView>,
     pub extent: vk::Extent2D,
     pub image_count: usize,
+    pub depth_images: Vec<vk::Image>,
+    pub depth_image_memorys: Vec<vk::Image>,
+    pub depth_image_view: Vec<vk::Image>,
     framebuffers: Vec<vk::Framebuffer>,
     image_available: Vec<vk::Semaphore>,
     rendering_finished: Vec<vk::Semaphore>,
@@ -105,6 +116,9 @@ impl RendererSwapchain {
             rendering_finished: vec![],
             may_begin_drawing: vec![],
             image_count,
+            depth_images: vec![],
+            depth_image_memorys: vec![],
+            depth_image_view: vec![],
             current_image: 0,
         };
 
@@ -207,6 +221,101 @@ impl RendererSwapchain {
             let fence = unsafe { device.logical_device.create_fence(&fence_info, None) }?;
 
             self.may_begin_drawing.push(fence);
+        }
+
+        Ok(())
+    }
+
+    pub unsafe fn create_depth_resources(
+        &mut self,
+        device: &RendererDevice,
+    ) -> Result<()> {
+        let depth_format = device.find_supported_format(
+            vec![
+                vk::Format::D32_SFLOAT,
+                vk::Format::D32_SFLOAT_S8_UINT,
+                vk::Format::D24_UNORM_S8_UINT,
+            ],
+            vk::ImageTiling::OPTIMAL,
+            FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
+        );
+
+        let mut depth_images = Vec::with_capacity(self.image_count);
+        let mut depth_image_memorys = Vec::with_capacity(self.image_count);
+        let mut depth_image_view = Vec::with_capacity(self.image_count);
+
+        let extent = vk::Extent3D::builder()
+            .width(self.extent.width)
+            .height(self.extent.height)
+            .depth(1);
+
+        for i in 0..self.image_count {
+            let image_create_info = ImageCreateInfo::builder()
+                .image_type(vk::ImageType::TYPE_2D)
+                .extent(*extent)
+                .mip_levels(1)
+                .array_layers(1)
+                .format(depth_format)
+                .tiling(vk::ImageTiling::OPTIMAL)
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+            depth_images.push(
+                device
+                    .logical_device
+                    .create_image(&image_create_info, None)?,
+            );
+            let memory_requirements = device
+                .logical_device
+                .get_image_memory_requirements(depth_images[i]);
+            let memory_type = RendererDevice::find_memorytype_index(
+                &memory_requirements,
+                &device.memory_properties,
+                vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            )
+            .context("No compatible memory type found for depth buffer")?;
+
+            let allocate_info = MemoryAllocateInfo::builder()
+                .allocation_size(memory_requirements.size)
+                .memory_type_index(memory_type);
+
+            depth_image_memorys.push(
+                device
+                    .logical_device
+                    .allocate_memory(&allocate_info, None)?,
+            );
+            device
+                .logical_device
+                .bind_image_memory(depth_images[i], depth_image_memorys[i], 0)?;
+
+            // device.createImageWithInfo(
+            //     imageInfo,
+            //     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            //     depthImages[i],
+            //     depthImageMemorys[i]);
+
+            let image_subresource_range = ImageSubresourceRange::builder()
+                .aspect_mask(ImageAspectFlags::DEPTH)
+                .base_mip_level(0)
+                .level_count(1)
+                .base_array_layer(0)
+                .layer_count(1);
+
+            let image_view_create_info = ImageViewCreateInfo::builder()
+                .image(depth_images[i])
+                .view_type(vk::ImageViewType::TYPE_2D)
+                .format(depth_format)
+                .subresource_range(*image_subresource_range);
+
+            unsafe {
+                depth_image_view.push(
+                    device
+                        .logical_device
+                        .create_image_view(&image_view_create_info, None)?,
+                );
+            }
         }
 
         Ok(())
