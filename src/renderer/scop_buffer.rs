@@ -3,13 +3,17 @@ use std::{ffi::c_void, mem, ptr::null_mut, rc::Rc};
 use anyhow::{Context, Ok, Result};
 use ash::{util::Align, vk};
 
-use super::device::RendererDevice;
+use super::{
+    device::RendererDevice,
+    scop_image::ScopImage,
+    tmp::{begin_single_time_commands, end_single_time_commands},
+};
 
 pub struct ScopBuffer {
     device: Rc<RendererDevice>,
     mapped: *mut c_void,
     pub buffer: vk::Buffer,
-    memory: vk::DeviceMemory,
+    device_memory: vk::DeviceMemory,
     buffer_size: vk::DeviceSize,
     pub instance_count: usize,
     instance_size: vk::DeviceSize,
@@ -19,7 +23,7 @@ pub struct ScopBuffer {
 }
 
 impl ScopBuffer {
-    pub unsafe fn new(
+    pub fn new(
         device: Rc<RendererDevice>,
         instance_count: usize,
         instance_size: vk::DeviceSize,
@@ -29,13 +33,14 @@ impl ScopBuffer {
     ) -> Result<Self> {
         let alignment_size: u64 = Self::get_alignment(instance_size, min_offset_alignment);
         let buffer_size = alignment_size * (instance_count as vk::DeviceSize);
-        let (buffer, memory) =
-            Self::create_buffer(&device, buffer_size, usage_flags, memory_property_flags)?;
+        let (buffer, device_memory) = unsafe {
+            Self::create_buffer(&device, buffer_size, usage_flags, memory_property_flags)?
+        };
         Ok(Self {
             device,
             mapped: null_mut(),
             buffer,
-            memory,
+            device_memory,
             buffer_size,
             instance_count,
             instance_size,
@@ -49,32 +54,109 @@ impl ScopBuffer {
         !self.mapped.is_null()
     }
 
-    pub unsafe fn map(&mut self, size: vk::DeviceSize, offset: vk::DeviceSize) -> Result<()> {
+    pub fn map(&mut self, size: vk::DeviceSize, offset: vk::DeviceSize) -> Result<()> {
         assert!(!self.is_mapped());
-        self.mapped = self.device.logical_device.map_memory(
-            self.memory,
-            offset,
-            size,
-            vk::MemoryMapFlags::empty(),
-        )?;
+        unsafe {
+            self.mapped = self.device.logical_device.map_memory(
+                self.device_memory,
+                offset,
+                size,
+                vk::MemoryMapFlags::empty(),
+            )?
+        };
         Ok(())
     }
 
-    pub unsafe fn unmap(&mut self) {
+    pub fn unmap(&mut self) {
         if self.is_mapped() {
-            self.device.logical_device.unmap_memory(self.memory);
+            unsafe { self.device.logical_device.unmap_memory(self.device_memory) };
         }
     }
 
-    pub unsafe fn write_to_buffer<T: Copy>(&mut self, data: &[T], offset: vk::DeviceSize) {
+    pub fn write_to_buffer<T: Copy>(&mut self, data: &[T], offset: vk::DeviceSize) {
         assert!(self.is_mapped());
 
         let size = self.alignment_size * data.len() as vk::DeviceSize;
-        let mut align = Align::new(self.mapped.add(offset as usize), self.alignment_size, size);
+        let mut align =
+            unsafe { Align::new(self.mapped.add(offset as usize), self.alignment_size, size) };
         align.copy_from_slice(data);
     }
 
-    pub unsafe fn descriptor_info(&self, size: vk::DeviceSize, offset: vk::DeviceSize) -> vk::DescriptorBufferInfo {
+    pub fn copy_to_buffer(
+        &self,
+        command_pool: vk::CommandPool,
+        queue: vk::Queue,
+        dst_buffer: vk::Buffer,
+        size: vk::DeviceSize,
+    ) -> Result<()> {
+        let command_buffer = begin_single_time_commands(&self.device, command_pool)?;
+
+        let region = vk::BufferCopy::builder().size(size);
+
+        unsafe {
+            self.device.logical_device.cmd_copy_buffer(
+                command_buffer,
+                self.buffer,
+                dst_buffer,
+                &[*region],
+            )
+        };
+
+        end_single_time_commands(&self.device, command_pool, queue, command_buffer)?;
+        Ok(())
+    }
+
+    pub fn copy_to_image(
+        &self,
+        command_pool: vk::CommandPool,
+        queue: vk::Queue,
+        dst_image: &ScopImage,
+    ) -> Result<()> {
+        assert!(
+            dst_image.layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            "Image layout should be TRANSFER_DST_OPTIMAL"
+        );
+
+        let command_buffer = begin_single_time_commands(&self.device, command_pool)?;
+
+        let image_subresource = vk::ImageSubresourceLayers::builder()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .mip_level(0)
+            .base_array_layer(0)
+            .layer_count(1);
+
+        let region = vk::BufferImageCopy::builder()
+            .buffer_offset(0)
+            .buffer_row_length(0)
+            .buffer_image_height(0)
+            .image_offset(*vk::Offset3D::builder().x(0).y(0).z(0))
+            .image_extent(
+                *vk::Extent3D::builder()
+                    .width(dst_image.width)
+                    .height(dst_image.height)
+                    .depth(1),
+            )
+            .image_subresource(*image_subresource);
+
+        unsafe {
+            self.device.logical_device.cmd_copy_buffer_to_image(
+                command_buffer,
+                self.buffer,
+                dst_image.image,
+                dst_image.layout,
+                &[*region],
+            )
+        };
+
+        end_single_time_commands(&self.device, command_pool, queue, command_buffer)?;
+        Ok(())
+    }
+
+    pub fn descriptor_info(
+        &self,
+        size: vk::DeviceSize,
+        offset: vk::DeviceSize,
+    ) -> vk::DescriptorBufferInfo {
         vk::DescriptorBufferInfo::builder()
             .buffer(self.buffer)
             .offset(offset)
@@ -82,10 +164,14 @@ impl ScopBuffer {
             .build()
     }
 
-    pub unsafe fn cleanup(mut self) {
+    pub fn cleanup(mut self) {
         self.unmap();
-        self.device.logical_device.free_memory(self.memory, None);
-        self.device.logical_device.destroy_buffer(self.buffer, None);
+        unsafe {
+            self.device.logical_device.destroy_buffer(self.buffer, None);
+            self.device
+                .logical_device
+                .free_memory(self.device_memory, None);
+        }
     }
 
     fn get_alignment(
