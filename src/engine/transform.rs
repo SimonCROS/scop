@@ -1,6 +1,6 @@
-use matrix::traits::{One, Transpose, Zero};
+use matrix::traits::{One, Zero};
 
-use crate::math::{Forward, Matrix3, Matrix4, Up, Vector3};
+use crate::math::{Matrix3, Matrix4, Vector3};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transform {

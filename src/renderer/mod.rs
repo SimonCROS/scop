@@ -1,12 +1,10 @@
 pub mod command_pools;
 pub mod debug;
 pub mod device;
-pub mod index_buffer;
 pub mod pipeline;
 pub mod scop_buffer;
 pub mod shader;
 pub mod swapchain;
-pub mod vertex_buffer;
 pub mod window;
 
 use core::slice;

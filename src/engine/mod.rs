@@ -88,15 +88,15 @@ impl Engine {
             GameObject::builder(self)
                 .name("Hello World")
                 .mesh(m.clone())
-                .transform(Transform { translation: [xs[i] * 2. - 1., ys[i] * 2. - 1., xs[i] * ys[i]].into(), scale: Vector3::one(), rotation: Vector3::zero()})
+                .transform(Transform { translation: [xs[i] * 2. - 1., ys[i] * 2. - 1., 0.6].into(), scale: Vector3::one(), rotation: Vector3::zero()})
                 .build();
         }
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {
             self.renderer.handle_draw_request(&self.game_objects)?;
-            let yaw = (std::f32::consts::PI * 2f32 / 100f32) * (self.renderer.frame_count % 100) as f32;
-            let roll = (std::f32::consts::PI * 2f32 / 242f32) * (self.renderer.frame_count % 242) as f32;
+            let yaw = (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
+            let roll = (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
             self.game_objects.values_mut().for_each(|e| {
                 e.borrow_mut().transform.rotation = [0., yaw, roll].into();
             });
