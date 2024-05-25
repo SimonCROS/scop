@@ -271,7 +271,7 @@ impl RendererSwapchain {
                 .get_image_memory_requirements(self.depth_images[i]);
             let memory_type = RendererDevice::find_memorytype_index(
                 &memory_requirements,
-                &device.memory_properties,
+                device.memory_properties,
                 vk::MemoryPropertyFlags::DEVICE_LOCAL,
             )
             .context("No compatible memory type found for depth buffer")?;

@@ -97,6 +97,7 @@ impl Engine {
             self.renderer.handle_draw_request(&self.game_objects)?;
             let yaw = (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
             let roll = (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
+            let roll = 0f32;
             self.game_objects.values_mut().for_each(|e| {
                 e.borrow_mut().transform.rotation = [0., yaw, roll].into();
             });

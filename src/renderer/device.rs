@@ -130,15 +130,15 @@ impl RendererDevice {
 
     pub fn find_memorytype_index(
         memory_req: &vk::MemoryRequirements,
-        memory_prop: &vk::PhysicalDeviceMemoryProperties,
-        flags: vk::MemoryPropertyFlags,
+        memory_prop: vk::PhysicalDeviceMemoryProperties,
+        memory_property_flags: vk::MemoryPropertyFlags,
     ) -> Option<u32> {
         memory_prop.memory_types[..memory_prop.memory_type_count as _]
             .iter()
             .enumerate()
             .find(|(index, memory_type)| {
                 (1 << index) & memory_req.memory_type_bits != 0
-                    && memory_type.property_flags & flags == flags
+                    && memory_type.property_flags & memory_property_flags == memory_property_flags
             })
             .map(|(index, _memory_type)| index as _)
     }

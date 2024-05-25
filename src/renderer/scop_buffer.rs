@@ -118,7 +118,7 @@ impl ScopBuffer {
 
         let buffer_memory_index = RendererDevice::find_memorytype_index(
             &memory_req,
-            &device.memory_properties,
+            device.memory_properties,
             memory_property_flags,
         )
         .context("Unable to find suitable memorytype for the index buffer.")?;

@@ -6,6 +6,7 @@ pub mod scop_buffer;
 pub mod shader;
 pub mod swapchain;
 pub mod window;
+pub mod tmp;
 
 use core::slice;
 use std::{
