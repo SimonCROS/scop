@@ -169,6 +169,10 @@ impl Renderer {
         Ok(())
     }
 
+    pub fn wait_gpu(&self) {
+        let _ = unsafe { self.main_device.logical_device.device_wait_idle() };
+    }
+
     fn draw_game_objects(
         &self,
         game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
@@ -228,7 +232,7 @@ impl Renderer {
 impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
-            let _ = self.main_device.logical_device.device_wait_idle();
+            self.wait_gpu();
 
             self.graphic_command_pool.cleanup();
             self.graphics_pipeline.cleanup();

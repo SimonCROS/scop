@@ -109,3 +109,9 @@ impl Engine {
         Ok(())
     }
 }
+
+impl Drop for Engine {
+    fn drop(&mut self) {
+        self.renderer.wait_gpu();
+    }
+}

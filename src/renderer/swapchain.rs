@@ -183,8 +183,6 @@ impl RendererSwapchain {
     }
 
     pub unsafe fn cleanup(&self, device: &Device) {
-        dbg!("Cleanup swapchain");
-
         for semaphore in &self.image_available {
             device.destroy_semaphore(*semaphore, None);
         }

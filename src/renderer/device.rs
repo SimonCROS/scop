@@ -190,9 +190,7 @@ impl RendererDevice {
         Ok(())
     }
 
-    pub unsafe fn cleanup(&self) {
-        dbg!("Cleanup device");
-
-        self.logical_device.destroy_device(None);
+    pub fn cleanup(&self) {
+        unsafe { self.logical_device.destroy_device(None) };
     }
 }
