@@ -5,12 +5,11 @@ use anyhow::Result;
 use ash::{
     extensions,
     vk::{self, FormatFeatureFlags, QueueFlags},
-    Device,
 };
 
 use super::{device::RendererDevice, scop_image::ScopImage, window::RendererWindow};
 
-pub struct RendererSwapchain {
+pub struct ScopSwapchain {
     device: Rc<RendererDevice>,
     pub swapchain: vk::SwapchainKHR,
     pub swapchain_loader: extensions::khr::Swapchain,
@@ -25,7 +24,7 @@ pub struct RendererSwapchain {
     current_image: usize,
 }
 
-impl RendererSwapchain {
+impl ScopSwapchain {
     pub fn new(
         instance: &ash::Instance,
         device: Rc<RendererDevice>,
@@ -103,9 +102,9 @@ impl RendererSwapchain {
         let image_count = image_views.len();
 
         let (depth_image, depth_image_view) =
-            unsafe { RendererSwapchain::create_depth_resources(&device, extent)? };
+            unsafe { ScopSwapchain::create_depth_resources(&device, extent)? };
 
-        let mut swapchain = RendererSwapchain {
+        let mut swapchain = ScopSwapchain {
             device,
             swapchain,
             swapchain_loader,

@@ -7,7 +7,7 @@ pub mod scop_framebuffer;
 pub mod scop_image;
 pub mod scop_render_pass;
 pub mod shader;
-pub mod swapchain;
+pub mod scop_swapchain;
 pub mod window;
 
 use std::{
@@ -31,7 +31,7 @@ use self::{
     pipeline::{RendererPipeline, SimplePushConstantData},
     scop_command_pool::ScopCommandPool,
     scop_render_pass::ScopRenderPass,
-    swapchain::RendererSwapchain,
+    scop_swapchain::ScopSwapchain,
 };
 use raw_window_handle::HasRawDisplayHandle;
 use window::RendererWindow;
@@ -46,7 +46,7 @@ pub struct Renderer {
     pub debug: RendererDebug,
     pub window: RendererWindow,
     pub main_device: Rc<RendererDevice>,
-    pub swapchain: RendererSwapchain,
+    pub swapchain: ScopSwapchain,
     pub defaut_render_pass: ScopRenderPass,
     pub graphics_pipeline: RendererPipeline,
     pub graphic_command_pool: ScopCommandPool,
@@ -85,7 +85,7 @@ impl Renderer {
 
         let main_device = Rc::new(RendererDevice::new(&instance)?);
 
-        let swapchain = RendererSwapchain::new(&instance, main_device.clone(), &window)?;
+        let swapchain = ScopSwapchain::new(&instance, main_device.clone(), &window)?;
 
         let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window, &swapchain)?;
 

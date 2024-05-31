@@ -4,7 +4,7 @@ use anyhow::{Ok, Result};
 use ash::vk;
 
 use super::{
-    device::RendererDevice, scop_framebuffer::ScopFramebuffer, swapchain::RendererSwapchain,
+    device::RendererDevice, scop_framebuffer::ScopFramebuffer, scop_swapchain::ScopSwapchain,
     window::RendererWindow,
 };
 
@@ -18,7 +18,7 @@ impl ScopRenderPass {
     pub fn new(
         device: Rc<RendererDevice>,
         window: &RendererWindow,
-        swapchain: &RendererSwapchain,
+        swapchain: &ScopSwapchain,
     ) -> Result<Self> {
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.first().unwrap();
@@ -107,7 +107,7 @@ impl ScopRenderPass {
         })
     }
 
-    pub fn change_swapchain(&mut self, swapchain: &RendererSwapchain) -> Result<()> {
+    pub fn change_swapchain(&mut self, swapchain: &ScopSwapchain) -> Result<()> {
         self.destroy_framebuffers();
         self.framebuffers =
             ScopRenderPass::create_framebuffers(&self.device, self.render_pass, swapchain)?;
@@ -173,7 +173,7 @@ impl ScopRenderPass {
     fn create_framebuffers(
         device: &Rc<RendererDevice>,
         render_pass: vk::RenderPass,
-        swapchain: &RendererSwapchain,
+        swapchain: &ScopSwapchain,
     ) -> Result<Vec<ScopFramebuffer>> {
         let mut framebuffers = Vec::with_capacity(swapchain.image_count);
 
