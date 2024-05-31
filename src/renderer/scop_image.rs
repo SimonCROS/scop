@@ -3,11 +3,7 @@ use std::rc::Rc;
 use anyhow::{bail, Context, Ok, Result};
 use ash::vk;
 
-use super::{
-    device::RendererDevice,
-    scop_buffer::ScopBuffer,
-    tmp::{begin_single_time_commands, end_single_time_commands},
-};
+use super::{device::RendererDevice, scop_buffer::ScopBuffer, scop_command_pool::ScopCommandPool};
 
 pub struct ScopImage {
     device: Rc<RendererDevice>,
@@ -79,12 +75,11 @@ impl ScopImage {
 
     pub fn change_layout(
         &mut self,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
+        command_pool: &ScopCommandPool,
         new_layout: vk::ImageLayout,
     ) -> Result<()> {
         unsafe {
-            let command_buffer = begin_single_time_commands(&self.device, command_pool)?;
+            let command_buffer = command_pool.begin_single_time_commands()?;
 
             let subresource_range = vk::ImageSubresourceRange::builder()
                 .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -132,26 +127,16 @@ impl ScopImage {
                 &[*image_memory_barrier],
             );
 
-            end_single_time_commands(&self.device, command_pool, queue, command_buffer)?;
+            command_pool.end_single_time_commands(command_buffer)?;
         }
 
         self.layout = new_layout;
         Ok(())
     }
 
-    pub fn cleanup(self) {
-        unsafe {
-            self.device.logical_device.destroy_image(self.image, None);
-            self.device
-                .logical_device
-                .free_memory(self.device_memory, None);
-        }
-    }
-
     pub fn create_texture_image(
         device: &Rc<RendererDevice>,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
+        command_pool: &ScopCommandPool,
         data: &[u8],
         width: u32,
         height: u32,
@@ -180,12 +165,21 @@ impl ScopImage {
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
 
-        image.change_layout(command_pool, queue, vk::ImageLayout::TRANSFER_DST_OPTIMAL)?;
-        staging_buffer.copy_to_image(command_pool, queue, &image)?;
-        image.change_layout(command_pool, queue, vk::ImageLayout::READ_ONLY_OPTIMAL)?;
+        image.change_layout(command_pool, vk::ImageLayout::TRANSFER_DST_OPTIMAL)?;
+        staging_buffer.copy_to_image(command_pool, &image)?;
+        image.change_layout(command_pool, vk::ImageLayout::READ_ONLY_OPTIMAL)?;
 
         staging_buffer.cleanup();
 
         Ok(image)
+    }
+
+    pub fn cleanup(&mut self) {
+        unsafe {
+            self.device.logical_device.destroy_image(self.image, None);
+            self.device
+                .logical_device
+                .free_memory(self.device_memory, None);
+        }
     }
 }

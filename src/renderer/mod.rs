@@ -1,12 +1,11 @@
-pub mod command_pools;
 pub mod debug;
 pub mod device;
 pub mod pipeline;
 pub mod scop_buffer;
+pub mod scop_command_pool;
 pub mod scop_image;
 pub mod shader;
 pub mod swapchain;
-pub mod tmp;
 pub mod window;
 
 use core::slice;
@@ -20,16 +19,16 @@ use std::{
 use anyhow::Result;
 use ash::{
     extensions::ext,
-    vk::{self, ShaderStageFlags},
+    vk::{self, CommandPoolCreateFlags, QueueFlags, ShaderStageFlags},
 };
 
 use crate::engine::GameObject;
 
 use self::{
-    command_pools::CommandPools,
     debug::RendererDebug,
     device::RendererDevice,
     pipeline::{RendererPipeline, SimplePushConstantData},
+    scop_command_pool::ScopCommandPool,
     swapchain::RendererSwapchain,
 };
 use raw_window_handle::HasRawDisplayHandle;
@@ -48,9 +47,7 @@ pub struct Renderer {
     pub swapchain: RendererSwapchain,
     pub render_pass: vk::RenderPass,
     pub graphics_pipeline: RendererPipeline,
-    pub command_pools: CommandPools,
-    pub graphics_command_buffers: Vec<vk::CommandBuffer>,
-    pub graphics_queue: vk::Queue,
+    pub graphic_command_pool: ScopCommandPool,
     pub frame_count: u32,
 }
 
@@ -84,7 +81,7 @@ impl Renderer {
 
         let debug = RendererDebug::new(&entry, &instance)?;
 
-        let main_device = RendererDevice::new(&instance)?;
+        let main_device = Rc::new(RendererDevice::new(&instance)?);
 
         let render_pass = Self::create_render_pass(&main_device, &window)?;
 
@@ -94,28 +91,26 @@ impl Renderer {
 
         let graphics_pipeline = RendererPipeline::new(&main_device, swapchain.extent, render_pass)?;
 
-        let command_pools = CommandPools::new(&main_device)?;
-
-        let graphics_command_buffers = CommandPools::create_command_buffers(
-            &main_device,
-            command_pools.graphics,
-            swapchain.image_count as u32,
+        let mut graphic_command_pool = ScopCommandPool::new(
+            main_device.clone(),
+            main_device
+                .get_queue_family_with(QueueFlags::GRAPHICS)
+                .unwrap(),
+            CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
         )?;
 
-        let graphics_queue = main_device.main_graphics_queue_family().queues[0];
+        graphic_command_pool.create_command_buffers(swapchain.image_count as u32)?;
 
         Ok(Self {
             entry,
             instance,
             debug,
-            main_device: Rc::new(main_device),
+            main_device,
             window,
             swapchain,
             render_pass,
             graphics_pipeline,
-            command_pools,
-            graphics_command_buffers,
-            graphics_queue,
+            graphic_command_pool,
             frame_count: 0,
         })
     }
@@ -131,7 +126,7 @@ impl Renderer {
             unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
 
         // commands:
-        let command_buffer = self.graphics_command_buffers[image_index as usize];
+        let command_buffer = self.graphic_command_pool.get_command_buffer(image_index);
 
         // let buffer_barrier = BufferMemoryBarrier2::builder()
         //     .src_access_mask(AccessFlags2::HOST_WRITE)
@@ -147,7 +142,7 @@ impl Renderer {
         //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
         // };
 
-        self.fill_command_buffer(command_buffer, |command_buffer: vk::CommandBuffer| {
+        self.fill_command_buffer(*command_buffer, |command_buffer: vk::CommandBuffer| {
             self.add_render_pass(
                 command_buffer,
                 self.render_pass,
@@ -185,15 +180,20 @@ impl Renderer {
         })
         .unwrap();
 
+        let queue = self
+            .main_device
+            .get_queue_family(self.graphic_command_pool.queue_family)
+            .queues[0];
+
         self.submit_command_buffer(
-            self.graphics_queue,
-            command_buffer,
+            queue,
+            *command_buffer,
             image_available,
             rendering_finished,
             may_begin_drawing,
         );
 
-        self.present_command_buffer(self.graphics_queue, image_index, rendering_finished);
+        self.present_command_buffer(queue, image_index, rendering_finished);
 
         Ok(())
     }
@@ -425,14 +425,10 @@ impl Renderer {
 
 impl Drop for Renderer {
     fn drop(&mut self) {
-        dbg!("Drop Renderer");
         unsafe {
             let _ = self.main_device.logical_device.device_wait_idle();
 
-            self.command_pools.cleanup(
-                &self.main_device.logical_device,
-                &self.graphics_command_buffers,
-            );
+            self.graphic_command_pool.cleanup();
             self.graphics_pipeline
                 .cleanup(&self.main_device.logical_device);
             self.swapchain.cleanup(&self.main_device.logical_device);

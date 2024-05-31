@@ -5,7 +5,7 @@ pub mod material;
 pub mod mesh;
 mod transform;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, mem::ManuallyDrop, rc::Rc};
 
 use anyhow::Result;
 pub use components::*;
@@ -13,30 +13,32 @@ pub use game_object::*;
 use matrix::traits::{One, Zero};
 pub use transform::*;
 
-use crate::{math::{Forward, Up, Vector2, Vector3}, renderer::{window::RendererWindow, Renderer}};
+use crate::{math::{Up, Vector2, Vector3}, renderer::{window::RendererWindow, Renderer}};
 
 use self::mesh::{Mesh, Vertex};
 
+pub type GameObjectId = u32;
+
 pub struct Engine {
-    last_go_id: u32,
+    last_used_id: GameObjectId,
+    pub game_objects: HashMap<GameObjectId, Rc<RefCell<GameObject>>>,
     renderer: Renderer,
-    pub game_objects: HashMap<u32, Rc<RefCell<GameObject>>>,
 }
 
 impl Engine {
     pub fn new() -> Result<Self> {
         Ok(Engine {
-            last_go_id: 0,
+            last_used_id: 0,
             renderer: Renderer::new()?,
             game_objects: HashMap::new(),
         })
     }
 
     pub fn register(&mut self, game_object: GameObject) -> Rc<RefCell<GameObject>> {
-        self.last_go_id += 1;
+        self.last_used_id += 1;
 
-        let id = self.last_go_id;
-        let go: Rc<RefCell<GameObject>> = Rc::new(RefCell::new(game_object));
+        let id = self.last_used_id;
+        let go = Rc::new(RefCell::new(game_object));
         self.game_objects.insert(id, go.clone());
         go
     }

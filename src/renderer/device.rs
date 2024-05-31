@@ -10,7 +10,10 @@ use ash::{
     Instance,
 };
 
+pub type QueueFamilyId = usize;
+
 pub struct QueueFamily {
+    pub id: QueueFamilyId,
     pub index: u32,
     pub flags: QueueFlags,
     pub queues: Vec<Queue>,
@@ -54,8 +57,10 @@ impl RendererDevice {
             .into_iter()
             .enumerate()
             .filter(|(_, qf)| qf.queue_count > 0 && qf.queue_flags.contains(QueueFlags::GRAPHICS))
-            .map(|(i, qf)| QueueFamily {
-                index: i as u32,
+            .enumerate()
+            .map(|(i, (index, qf))| QueueFamily {
+                id: i,
+                index: index as u32,
                 flags: qf.queue_flags,
                 queues: vec![],
             })
@@ -120,14 +125,6 @@ impl RendererDevice {
         })
     }
 
-    pub fn queue_family(&self, flags: QueueFlags) -> Option<&QueueFamily> {
-        self.queue_families.iter().find(|f| f.flags.contains(flags))
-    }
-
-    pub fn main_graphics_queue_family(&self) -> &QueueFamily {
-        self.queue_family(QueueFlags::GRAPHICS).unwrap()
-    }
-
     pub fn find_memorytype_index(
         memory_req: &vk::MemoryRequirements,
         memory_prop: vk::PhysicalDeviceMemoryProperties,
@@ -165,6 +162,14 @@ impl RendererDevice {
             }
         }
         bail!("Cannot find satisfying format")
+    }
+
+    pub fn get_queue_family(&self, id: QueueFamilyId) -> &QueueFamily {
+        &self.queue_families[id]
+    }
+
+    pub fn get_queue_family_with(&self, flags: QueueFlags) -> Option<&QueueFamily> {
+        self.queue_families.iter().find(|f| f.flags.contains(flags))
     }
 
     pub unsafe fn cleanup(&self) {

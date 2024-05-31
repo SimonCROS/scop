@@ -120,9 +120,11 @@ impl Mesh {
             );
         }
     }
+}
 
-    pub unsafe fn cleanup(self) {
-        if let Some(index_buffer) = self.index_buffer {
+impl Drop for Mesh {
+    fn drop(&mut self) {
+        if let Some(index_buffer) = &mut self.index_buffer {
             index_buffer.cleanup();
         }
         self.vertex_buffer.cleanup();

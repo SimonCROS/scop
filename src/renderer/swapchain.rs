@@ -4,9 +4,7 @@ use anyhow::{Context, Result};
 use ash::{
     extensions,
     vk::{
-        self, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo, ImageSubresourceRange,
-        ImageTiling, ImageUsageFlags, ImageViewCreateInfo, MemoryAllocateInfo,
-        PhysicalDeviceMemoryProperties, SampleCountFlags,
+        self, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo, ImageSubresourceRange, ImageTiling, ImageUsageFlags, ImageViewCreateInfo, MemoryAllocateInfo, PhysicalDeviceMemoryProperties, QueueFlags, SampleCountFlags
     },
     Device,
 };
@@ -37,7 +35,7 @@ impl RendererSwapchain {
     ) -> Result<Self> {
         dbg!("New swapchain");
 
-        let graphics_queue_family = device.main_graphics_queue_family();
+        let graphics_queue_family = device.get_queue_family_with(QueueFlags::GRAPHICS).unwrap();
 
         let capabilities = window.capabilities(device.physical_device)?;
 

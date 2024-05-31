@@ -3,11 +3,7 @@ use std::{ffi::c_void, mem, ptr::null_mut, rc::Rc};
 use anyhow::{Context, Ok, Result};
 use ash::{util::Align, vk};
 
-use super::{
-    device::RendererDevice,
-    scop_image::ScopImage,
-    tmp::{begin_single_time_commands, end_single_time_commands},
-};
+use super::{device::RendererDevice, scop_command_pool::ScopCommandPool, scop_image::ScopImage};
 
 pub struct ScopBuffer {
     device: Rc<RendererDevice>,
@@ -84,12 +80,11 @@ impl ScopBuffer {
 
     pub fn copy_to_buffer(
         &self,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
+        command_pool: &ScopCommandPool,
         dst_buffer: vk::Buffer,
         size: vk::DeviceSize,
     ) -> Result<()> {
-        let command_buffer = begin_single_time_commands(&self.device, command_pool)?;
+        let command_buffer = command_pool.begin_single_time_commands()?;
 
         let region = vk::BufferCopy::builder().size(size);
 
@@ -102,14 +97,13 @@ impl ScopBuffer {
             )
         };
 
-        end_single_time_commands(&self.device, command_pool, queue, command_buffer)?;
+        command_pool.end_single_time_commands(command_buffer)?;
         Ok(())
     }
 
     pub fn copy_to_image(
         &self,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
+        command_pool: &ScopCommandPool,
         dst_image: &ScopImage,
     ) -> Result<()> {
         assert!(
@@ -117,7 +111,7 @@ impl ScopBuffer {
             "Image layout should be TRANSFER_DST_OPTIMAL"
         );
 
-        let command_buffer = begin_single_time_commands(&self.device, command_pool)?;
+        let command_buffer = command_pool.begin_single_time_commands()?;
 
         let image_subresource = vk::ImageSubresourceLayers::builder()
             .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -148,7 +142,7 @@ impl ScopBuffer {
             )
         };
 
-        end_single_time_commands(&self.device, command_pool, queue, command_buffer)?;
+        command_pool.end_single_time_commands(command_buffer)?;
         Ok(())
     }
 
@@ -164,7 +158,7 @@ impl ScopBuffer {
             .build()
     }
 
-    pub fn cleanup(mut self) {
+    pub fn cleanup(&mut self) {
         self.unmap();
         unsafe {
             self.device.logical_device.destroy_buffer(self.buffer, None);
