@@ -59,19 +59,19 @@ impl Engine {
             },
             Vertex {
                 position: [0.2, 0.2, 0.2].into(),
-                color: [0.0, 1.0, 0.0].into(),
+                color: [1.0, 0.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
                 position: [-0.2, 0.2, 0.2].into(),
-                color: [0.0, 1.0, 0.0].into(),
+                color: [0.0, 0.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
                 position: [0.0, -0.2, 0.0].into(),
-                color: [1.0, 0.0, 0.0].into(),
+                color: [1.0, 1.0, 1.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
@@ -99,7 +99,7 @@ impl Engine {
             self.renderer.handle_draw_request(&self.game_objects)?;
             let yaw = (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
             let roll = (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
-            let roll = 0f32;
+            // let roll = 0f32;
             self.game_objects.values_mut().for_each(|e| {
                 e.borrow_mut().transform.rotation = [0., yaw, roll].into();
             });

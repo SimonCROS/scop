@@ -3,15 +3,23 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk;
 
-use super::{device::RendererDevice, window::RendererWindow};
+use super::{
+    device::RendererDevice, scop_framebuffer::ScopFramebuffer, swapchain::RendererSwapchain,
+    window::RendererWindow,
+};
 
 pub struct ScopRenderPass {
     device: Rc<RendererDevice>,
     pub render_pass: vk::RenderPass,
+    pub framebuffers: Vec<ScopFramebuffer>,
 }
 
 impl ScopRenderPass {
-    pub fn new(device: Rc<RendererDevice>, window: &RendererWindow) -> Result<Self> {
+    pub fn new(
+        device: Rc<RendererDevice>,
+        window: &RendererWindow,
+        swapchain: &RendererSwapchain,
+    ) -> Result<Self> {
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.first().unwrap();
         let depth_format = device.find_supported_format(
@@ -90,18 +98,26 @@ impl ScopRenderPass {
                 .create_render_pass(&render_pass_info, None)
         }?;
 
+        let framebuffers = ScopRenderPass::create_framebuffers(&device, render_pass, swapchain)?;
+
         Ok(Self {
             device,
             render_pass,
+            framebuffers,
         })
     }
 
-    pub fn begin(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        framebuffer: vk::Framebuffer,
-        extent: vk::Extent2D,
-    ) {
+    pub fn change_swapchain(&mut self, swapchain: &RendererSwapchain) -> Result<()> {
+        self.destroy_framebuffers();
+        self.framebuffers =
+            ScopRenderPass::create_framebuffers(&self.device, self.render_pass, swapchain)?;
+
+        Ok(())
+    }
+
+    pub fn begin(&self, command_buffer: vk::CommandBuffer, image_index: u32) {
+        let framebuffer = &self.framebuffers[image_index as usize];
+
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -116,11 +132,15 @@ impl ScopRenderPass {
             },
         ];
 
-        let offset = vk::Offset2D { x: 0, y: 0 };
+        let render_area = vk::Rect2D {
+            offset: vk::Offset2D { x: 0, y: 0 },
+            extent: framebuffer.extent,
+        };
+
         let render_pass_begin = vk::RenderPassBeginInfo::builder()
             .render_pass(self.render_pass)
-            .framebuffer(framebuffer)
-            .render_area(vk::Rect2D { offset, extent })
+            .framebuffer(framebuffer.framebuffer)
+            .render_area(render_area)
             .clear_values(&clear_values);
 
         unsafe {
@@ -141,10 +161,40 @@ impl ScopRenderPass {
     }
 
     pub fn cleanup(&mut self) {
+        self.destroy_framebuffers();
+
         unsafe {
             self.device
                 .logical_device
                 .destroy_render_pass(self.render_pass, None)
         };
+    }
+
+    fn create_framebuffers(
+        device: &Rc<RendererDevice>,
+        render_pass: vk::RenderPass,
+        swapchain: &RendererSwapchain,
+    ) -> Result<Vec<ScopFramebuffer>> {
+        let mut framebuffers = Vec::with_capacity(swapchain.image_count);
+
+        for i in 0..swapchain.image_count {
+            framebuffers.push(ScopFramebuffer::new(
+                device.clone(),
+                swapchain.image_views[i],
+                swapchain.depth_image_view,
+                render_pass,
+                swapchain.extent,
+            )?);
+        }
+
+        Ok(framebuffers)
+    }
+
+    fn destroy_framebuffers(&mut self) {
+        for framebuffer in &mut self.framebuffers {
+            framebuffer.cleanup();
+        }
+
+        self.framebuffers.clear();
     }
 }

@@ -5,8 +5,7 @@ use ash::{
     extensions,
     vk::{
         self, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo, ImageSubresourceRange,
-        ImageTiling, ImageUsageFlags, ImageViewCreateInfo, MemoryAllocateInfo,
-        PhysicalDeviceMemoryProperties, QueueFlags, SampleCountFlags,
+        ImageViewCreateInfo, MemoryAllocateInfo, QueueFlags,
     },
     Device,
 };
@@ -19,10 +18,9 @@ pub struct RendererSwapchain {
     pub image_views: Vec<vk::ImageView>,
     pub extent: vk::Extent2D,
     pub image_count: usize,
-    pub depth_images: Vec<vk::Image>,
-    pub depth_image_memorys: Vec<vk::DeviceMemory>,
-    pub depth_image_views: Vec<vk::ImageView>,
-    framebuffers: Vec<vk::Framebuffer>,
+    pub depth_image: vk::Image,
+    pub depth_image_memory: vk::DeviceMemory,
+    pub depth_image_view: vk::ImageView,
     image_available: Vec<vk::Semaphore>,
     rendering_finished: Vec<vk::Semaphore>,
     may_begin_drawing: Vec<vk::Fence>,
@@ -40,6 +38,8 @@ impl RendererSwapchain {
         let graphics_queue_family = device.get_queue_family_with(QueueFlags::GRAPHICS).unwrap();
 
         let capabilities = window.capabilities(device.physical_device)?;
+
+        let extent = capabilities.current_extent;
 
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.first().unwrap();
@@ -60,7 +60,7 @@ impl RendererSwapchain {
                 .min_image_count(min_image_count)
                 .image_format(surface_format.format)
                 .image_color_space(surface_format.color_space)
-                .image_extent(capabilities.current_extent)
+                .image_extent(extent)
                 .image_array_layers(1)
                 .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
                 .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
@@ -104,19 +104,20 @@ impl RendererSwapchain {
 
         let image_count = image_views.len();
 
+        let (depth_image, depth_image_memory, depth_image_view) = unsafe {RendererSwapchain::create_depth_resources(device, extent)? };
+
         let mut swapchain = RendererSwapchain {
             swapchain,
             swapchain_loader,
             image_views,
-            framebuffers: vec![],
-            extent: capabilities.current_extent,
+            extent,
             image_available: vec![],
             rendering_finished: vec![],
             may_begin_drawing: vec![],
             image_count,
-            depth_images: vec![],
-            depth_image_memorys: vec![],
-            depth_image_views: vec![],
+            depth_image,
+            depth_image_memory,
+            depth_image_view,
             current_image: 0,
         };
 
@@ -125,48 +126,13 @@ impl RendererSwapchain {
         Ok(swapchain)
     }
 
-    pub fn create_framebuffers(
-        &mut self,
-        device: &RendererDevice,
-        render_pass: vk::RenderPass,
-    ) -> Result<()> {
-        self.framebuffers.reserve(self.image_views.len());
-
-        for i in 0..self.image_count {
-            let attachments = [self.image_views[i], self.depth_image_views[i]];
-            let framebuffer_info = vk::FramebufferCreateInfo::builder()
-                .render_pass(render_pass)
-                .attachments(&attachments)
-                .width(self.extent.width)
-                .height(self.extent.height)
-                .layers(1);
-
-            let framebuffer = unsafe {
-                device
-                    .logical_device
-                    .create_framebuffer(&framebuffer_info, None)
-            }?;
-
-            self.framebuffers.push(framebuffer);
-        }
-
-        Ok(())
-    }
-
     pub fn next_image(
         &mut self,
         device: &RendererDevice,
-    ) -> Result<(
-        u32,
-        vk::Semaphore,
-        vk::Semaphore,
-        vk::Fence,
-        vk::Framebuffer,
-    )> {
+    ) -> Result<(u32, vk::Semaphore, vk::Semaphore, vk::Fence)> {
         let image_available = &self.image_available[self.current_image];
         let rendering_finished = &self.rendering_finished[self.current_image];
         let may_begin_drawing = &self.may_begin_drawing[self.current_image];
-        let framebuffer = &self.framebuffers[self.current_image];
 
         let (image_index, _) = unsafe {
             self.swapchain_loader.acquire_next_image(
@@ -195,7 +161,6 @@ impl RendererSwapchain {
             *image_available,
             *rendering_finished,
             *may_begin_drawing,
-            *framebuffer,
         ))
     }
 
@@ -217,94 +182,6 @@ impl RendererSwapchain {
         Ok(())
     }
 
-    pub unsafe fn create_depth_resources(&mut self, device: &RendererDevice) -> Result<()> {
-        let depth_format = device.find_supported_format(
-            vec![
-                vk::Format::D32_SFLOAT,
-                vk::Format::D32_SFLOAT_S8_UINT,
-                vk::Format::D24_UNORM_S8_UINT,
-            ],
-            vk::ImageTiling::OPTIMAL,
-            FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
-        )?;
-
-        self.depth_images.reserve(self.image_count);
-        self.depth_image_memorys.reserve(self.image_count);
-        self.depth_image_views.reserve(self.image_count);
-
-        let extent = vk::Extent3D::builder()
-            .width(self.extent.width)
-            .height(self.extent.height)
-            .depth(1);
-
-        for i in 0..self.image_count {
-            let image_create_info = ImageCreateInfo::builder()
-                .image_type(vk::ImageType::TYPE_2D)
-                .extent(*extent)
-                .mip_levels(1)
-                .array_layers(1)
-                .format(depth_format)
-                .tiling(vk::ImageTiling::OPTIMAL)
-                .initial_layout(vk::ImageLayout::UNDEFINED)
-                .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
-                .samples(vk::SampleCountFlags::TYPE_1)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-            self.depth_images.push(
-                device
-                    .logical_device
-                    .create_image(&image_create_info, None)?,
-            );
-            let memory_requirements = device
-                .logical_device
-                .get_image_memory_requirements(self.depth_images[i]);
-            let memory_type = RendererDevice::find_memorytype_index(
-                &memory_requirements,
-                device.memory_properties,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            )
-            .context("No compatible memory type found for depth buffer")?;
-
-            let allocate_info = MemoryAllocateInfo::builder()
-                .allocation_size(memory_requirements.size)
-                .memory_type_index(memory_type);
-
-            self.depth_image_memorys.push(
-                device
-                    .logical_device
-                    .allocate_memory(&allocate_info, None)?,
-            );
-            device.logical_device.bind_image_memory(
-                self.depth_images[i],
-                self.depth_image_memorys[i],
-                0,
-            )?;
-
-            let image_subresource_range = ImageSubresourceRange::builder()
-                .aspect_mask(ImageAspectFlags::DEPTH)
-                .base_mip_level(0)
-                .level_count(1)
-                .base_array_layer(0)
-                .layer_count(1);
-
-            let image_view_create_info = ImageViewCreateInfo::builder()
-                .image(self.depth_images[i])
-                .view_type(vk::ImageViewType::TYPE_2D)
-                .format(depth_format)
-                .subresource_range(*image_subresource_range);
-
-            unsafe {
-                self.depth_image_views.push(
-                    device
-                        .logical_device
-                        .create_image_view(&image_view_create_info, None)?,
-                );
-            }
-        }
-
-        Ok(())
-    }
-
     pub unsafe fn cleanup(&self, device: &Device) {
         dbg!("Cleanup swapchain");
 
@@ -320,16 +197,85 @@ impl RendererSwapchain {
             device.destroy_fence(*fence, None);
         }
 
-        for framebuffer in &self.framebuffers {
-            device.destroy_framebuffer(*framebuffer, None);
-        }
-
         for image_view in &self.image_views {
             device.destroy_image_view(*image_view, None);
         }
 
         self.swapchain_loader
             .destroy_swapchain(self.swapchain, None);
+    }
+
+    unsafe fn create_depth_resources(device: &RendererDevice, extent: vk::Extent2D) -> Result<(vk::Image, vk::DeviceMemory, vk::ImageView)> {
+        let depth_format = device.find_supported_format(
+            vec![
+                vk::Format::D32_SFLOAT,
+                vk::Format::D32_SFLOAT_S8_UINT,
+                vk::Format::D24_UNORM_S8_UINT,
+            ],
+            vk::ImageTiling::OPTIMAL,
+            FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
+        )?;
+
+        let extent = vk::Extent3D::builder()
+            .width(extent.width)
+            .height(extent.height)
+            .depth(1);
+
+        let image_create_info = ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .extent(*extent)
+            .mip_levels(1)
+            .array_layers(1)
+            .format(depth_format)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+        let depth_image = device
+            .logical_device
+            .create_image(&image_create_info, None)?;
+        let memory_requirements = device
+            .logical_device
+            .get_image_memory_requirements(depth_image);
+        let memory_type = RendererDevice::find_memorytype_index(
+            &memory_requirements,
+            device.memory_properties,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        )
+        .context("No compatible memory type found for depth buffer")?;
+
+        let allocate_info = MemoryAllocateInfo::builder()
+            .allocation_size(memory_requirements.size)
+            .memory_type_index(memory_type);
+
+        let depth_image_memory = device
+            .logical_device
+            .allocate_memory(&allocate_info, None)?;
+        device
+            .logical_device
+            .bind_image_memory(depth_image, depth_image_memory, 0)?;
+
+        let image_subresource_range = ImageSubresourceRange::builder()
+            .aspect_mask(ImageAspectFlags::DEPTH)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+
+        let image_view_create_info = ImageViewCreateInfo::builder()
+            .image(depth_image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(depth_format)
+            .subresource_range(*image_subresource_range);
+
+        let depth_image_view =
+                device
+                    .logical_device
+                    .create_image_view(&image_view_create_info, None)?;
+
+        Ok((depth_image, depth_image_memory, depth_image_view))
     }
 
     fn create_sync(&mut self, device: &RendererDevice) -> Result<()> {

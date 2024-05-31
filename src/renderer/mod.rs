@@ -3,6 +3,7 @@ pub mod device;
 pub mod pipeline;
 pub mod scop_buffer;
 pub mod scop_command_pool;
+pub mod scop_framebuffer;
 pub mod scop_image;
 pub mod scop_render_pass;
 pub mod shader;
@@ -84,11 +85,9 @@ impl Renderer {
 
         let main_device = Rc::new(RendererDevice::new(&instance)?);
 
-        let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window)?;
+        let swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
 
-        let mut swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
-        unsafe { swapchain.create_depth_resources(&main_device)? };
-        swapchain.create_framebuffers(&main_device, defaut_render_pass.render_pass)?;
+        let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window, &swapchain)?;
 
         let graphics_pipeline = RendererPipeline::new(
             main_device.clone(),
@@ -126,7 +125,7 @@ impl Renderer {
     ) -> Result<()> {
         self.frame_count += 1;
 
-        let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
+        let (image_index, image_available, rendering_finished, may_begin_drawing) =
             self.swapchain.next_image(&self.main_device)?;
 
         let command_buffer = self.graphic_command_pool.get_command_buffer(image_index);
@@ -146,8 +145,7 @@ impl Renderer {
         // };
 
         self.main_device.begin_command_buffer(command_buffer)?;
-        self.defaut_render_pass
-            .begin(command_buffer, framebuffer, self.swapchain.extent);
+        self.defaut_render_pass.begin(command_buffer, image_index);
         self.graphics_pipeline
             .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
 
