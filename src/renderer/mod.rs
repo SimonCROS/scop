@@ -85,7 +85,7 @@ impl Renderer {
 
         let main_device = Rc::new(RendererDevice::new(&instance)?);
 
-        let swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
+        let swapchain = RendererSwapchain::new(&instance, main_device.clone(), &window)?;
 
         let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window, &swapchain)?;
 

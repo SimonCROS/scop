@@ -1,16 +1,14 @@
 use core::slice;
+use std::rc::Rc;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use ash::{
     extensions,
-    vk::{
-        self, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo, ImageSubresourceRange,
-        ImageViewCreateInfo, MemoryAllocateInfo, QueueFlags,
-    },
+    vk::{self, FormatFeatureFlags, QueueFlags},
     Device,
 };
 
-use super::{device::RendererDevice, window::RendererWindow};
+use super::{device::RendererDevice, scop_image::ScopImage, window::RendererWindow};
 
 pub struct RendererSwapchain {
     pub swapchain: vk::SwapchainKHR,
@@ -18,8 +16,7 @@ pub struct RendererSwapchain {
     pub image_views: Vec<vk::ImageView>,
     pub extent: vk::Extent2D,
     pub image_count: usize,
-    pub depth_image: vk::Image,
-    pub depth_image_memory: vk::DeviceMemory,
+    pub depth_image: ScopImage,
     pub depth_image_view: vk::ImageView,
     image_available: Vec<vk::Semaphore>,
     rendering_finished: Vec<vk::Semaphore>,
@@ -30,7 +27,7 @@ pub struct RendererSwapchain {
 impl RendererSwapchain {
     pub fn new(
         instance: &ash::Instance,
-        device: &RendererDevice,
+        device: Rc<RendererDevice>,
         window: &RendererWindow,
     ) -> Result<Self> {
         dbg!("New swapchain");
@@ -104,7 +101,8 @@ impl RendererSwapchain {
 
         let image_count = image_views.len();
 
-        let (depth_image, depth_image_memory, depth_image_view) = unsafe {RendererSwapchain::create_depth_resources(device, extent)? };
+        let (depth_image, depth_image_view) =
+            unsafe { RendererSwapchain::create_depth_resources(&device, extent)? };
 
         let mut swapchain = RendererSwapchain {
             swapchain,
@@ -116,12 +114,11 @@ impl RendererSwapchain {
             may_begin_drawing: vec![],
             image_count,
             depth_image,
-            depth_image_memory,
             depth_image_view,
             current_image: 0,
         };
 
-        swapchain.create_sync(device)?;
+        swapchain.create_sync(&device)?;
 
         Ok(swapchain)
     }
@@ -182,7 +179,7 @@ impl RendererSwapchain {
         Ok(())
     }
 
-    pub unsafe fn cleanup(&self, device: &Device) {
+    pub unsafe fn cleanup(&mut self, device: &Device) {
         for semaphore in &self.image_available {
             device.destroy_semaphore(*semaphore, None);
         }
@@ -199,11 +196,17 @@ impl RendererSwapchain {
             device.destroy_image_view(*image_view, None);
         }
 
+        device.destroy_image_view(self.depth_image_view, None);
+        self.depth_image.cleanup();
+
         self.swapchain_loader
             .destroy_swapchain(self.swapchain, None);
     }
 
-    unsafe fn create_depth_resources(device: &RendererDevice, extent: vk::Extent2D) -> Result<(vk::Image, vk::DeviceMemory, vk::ImageView)> {
+    unsafe fn create_depth_resources(
+        device: &Rc<RendererDevice>,
+        extent: vk::Extent2D,
+    ) -> Result<(ScopImage, vk::ImageView)> {
         let depth_format = device.find_supported_format(
             vec![
                 vk::Format::D32_SFLOAT,
@@ -214,69 +217,23 @@ impl RendererSwapchain {
             FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
         )?;
 
-        let extent = vk::Extent3D::builder()
-            .width(extent.width)
-            .height(extent.height)
-            .depth(1);
-
-        let image_create_info = ImageCreateInfo::builder()
-            .image_type(vk::ImageType::TYPE_2D)
-            .extent(*extent)
-            .mip_levels(1)
-            .array_layers(1)
-            .format(depth_format)
-            .tiling(vk::ImageTiling::OPTIMAL)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
-            .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-        let depth_image = device
-            .logical_device
-            .create_image(&image_create_info, None)?;
-        let memory_requirements = device
-            .logical_device
-            .get_image_memory_requirements(depth_image);
-        let memory_type = RendererDevice::find_memorytype_index(
-            &memory_requirements,
-            device.memory_properties,
+        let depth_image = ScopImage::new(
+            device.clone(),
+            depth_format,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            extent.width,
+            extent.height,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        )
-        .context("No compatible memory type found for depth buffer")?;
+        )?;
 
-        let allocate_info = MemoryAllocateInfo::builder()
-            .allocation_size(memory_requirements.size)
-            .memory_type_index(memory_type);
+        let depth_image_view = depth_image.create_image_view(vk::ImageAspectFlags::DEPTH)?;
 
-        let depth_image_memory = device
-            .logical_device
-            .allocate_memory(&allocate_info, None)?;
-        device
-            .logical_device
-            .bind_image_memory(depth_image, depth_image_memory, 0)?;
-
-        let image_subresource_range = ImageSubresourceRange::builder()
-            .aspect_mask(ImageAspectFlags::DEPTH)
-            .base_mip_level(0)
-            .level_count(1)
-            .base_array_layer(0)
-            .layer_count(1);
-
-        let image_view_create_info = ImageViewCreateInfo::builder()
-            .image(depth_image)
-            .view_type(vk::ImageViewType::TYPE_2D)
-            .format(depth_format)
-            .subresource_range(*image_subresource_range);
-
-        let depth_image_view =
-                device
-                    .logical_device
-                    .create_image_view(&image_view_create_info, None)?;
-
-        Ok((depth_image, depth_image_memory, depth_image_view))
+        Ok((depth_image, depth_image_view))
     }
 
-    fn create_sync(&mut self, device: &RendererDevice) -> Result<()> {
+    fn create_sync(&mut self, device: &Rc<RendererDevice>) -> Result<()> {
         let semaphore_info = vk::SemaphoreCreateInfo::builder();
 
         let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);

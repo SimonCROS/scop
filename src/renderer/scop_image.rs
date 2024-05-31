@@ -9,9 +9,12 @@ pub struct ScopImage {
     device: Rc<RendererDevice>,
     pub image: vk::Image,
     pub device_memory: vk::DeviceMemory,
+    pub format: vk::Format,
     pub layout: vk::ImageLayout,
     pub width: u32,
     pub height: u32,
+    mip_levels: u32,
+    array_layers: u32,
 }
 
 impl ScopImage {
@@ -19,19 +22,24 @@ impl ScopImage {
         device: Rc<RendererDevice>,
         format: vk::Format,
         tiling: vk::ImageTiling,
+        initial_layout: vk::ImageLayout,
         usage: vk::ImageUsageFlags,
         width: u32,
         height: u32,
         memory_property_flags: vk::MemoryPropertyFlags,
     ) -> Result<Self> {
+        let mip_levels = 1u32;
+        let array_layers = 1u32;
+
         let image = {
             let create_info = vk::ImageCreateInfo::builder()
                 .image_type(vk::ImageType::TYPE_2D)
                 .extent(*vk::Extent3D::builder().width(width).height(height).depth(1))
-                .mip_levels(1)
-                .array_layers(1)
+                .mip_levels(mip_levels)
+                .array_layers(array_layers)
                 .format(format)
                 .tiling(tiling)
+                .initial_layout(initial_layout)
                 .usage(usage)
                 .samples(vk::SampleCountFlags::TYPE_1)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE);
@@ -67,9 +75,12 @@ impl ScopImage {
             device,
             image,
             device_memory,
-            layout: vk::ImageLayout::UNDEFINED,
+            format,
+            layout: initial_layout,
             width,
             height,
+            mip_levels,
+            array_layers,
         })
     }
 
@@ -159,19 +170,43 @@ impl ScopImage {
             device.clone(),
             vk::Format::R8G8B8A8_SRGB,
             vk::ImageTiling::OPTIMAL,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             width,
             height,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
 
-        image.change_layout(command_pool, vk::ImageLayout::TRANSFER_DST_OPTIMAL)?;
         staging_buffer.copy_to_image(command_pool, &image)?;
         image.change_layout(command_pool, vk::ImageLayout::READ_ONLY_OPTIMAL)?;
 
         staging_buffer.cleanup();
 
         Ok(image)
+    }
+
+    pub fn create_image_view(&self, aspect_mask: vk::ImageAspectFlags) -> Result<vk::ImageView> {
+        // Access all levels, all layers
+        let image_subresource_range = vk::ImageSubresourceRange::builder()
+            .aspect_mask(aspect_mask)
+            .base_mip_level(0)
+            .level_count(self.mip_levels)
+            .base_array_layer(0)
+            .layer_count(self.array_layers);
+
+        let image_view_create_info = vk::ImageViewCreateInfo::builder()
+            .image(self.image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(self.format)
+            .subresource_range(*image_subresource_range);
+
+        let image_view = unsafe {
+            self.device
+                .logical_device
+                .create_image_view(&image_view_create_info, None)?
+        };
+
+        Ok(image_view)
     }
 
     pub fn cleanup(&mut self) {
