@@ -19,7 +19,7 @@ use std::{
 use anyhow::Result;
 use ash::{
     extensions::ext,
-    vk::{self, CommandPoolCreateFlags, QueueFlags, ShaderStageFlags},
+    vk::{self, CommandPoolCreateFlags, PipelineStageFlags, QueueFlags, ShaderStageFlags},
 };
 
 use crate::engine::GameObject;
@@ -142,58 +142,54 @@ impl Renderer {
         //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
         // };
 
-        self.fill_command_buffer(*command_buffer, |command_buffer: vk::CommandBuffer| {
-            self.add_render_pass(
-                command_buffer,
-                self.render_pass,
-                framebuffer,
-                |command_buffer| unsafe {
-                    self.main_device.logical_device.cmd_bind_pipeline(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.graphics_pipeline.pipeline,
-                    );
+        self.main_device.begin_command_buffer(command_buffer)?;
+        self.add_render_pass(
+            command_buffer,
+            self.render_pass,
+            framebuffer,
+            |command_buffer| unsafe {
+                self.main_device.logical_device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.graphics_pipeline.pipeline,
+                );
 
-                    for go in game_objects.values() {
-                        let game_object = go.borrow();
+                for go in game_objects.values() {
+                    let game_object = go.borrow();
 
-                        if let Some(mesh) = &game_object.mesh {
-                            let push = SimplePushConstantData {
-                                model_matrix: game_object.transform.mat(),
-                                normal_matrix: game_object.transform.normal_matrix(),
-                            };
+                    if let Some(mesh) = &game_object.mesh {
+                        let push = SimplePushConstantData {
+                            model_matrix: game_object.transform.mat(),
+                            normal_matrix: game_object.transform.normal_matrix(),
+                        };
 
-                            self.main_device.logical_device.cmd_push_constants(
-                                command_buffer,
-                                self.graphics_pipeline.pipeline_layout,
-                                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                                0,
-                                crate::utils::any_as_u8_slice(&push),
-                            );
+                        self.main_device.logical_device.cmd_push_constants(
+                            command_buffer,
+                            self.graphics_pipeline.pipeline_layout,
+                            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                            0,
+                            crate::utils::any_as_u8_slice(&push),
+                        );
 
-                            mesh.bind(command_buffer);
-                            mesh.draw(command_buffer);
-                        }
+                        mesh.bind(command_buffer);
+                        mesh.draw(command_buffer);
                     }
-                },
-            );
-        })
-        .unwrap();
-
-        let queue = self
-            .main_device
-            .get_queue_family(self.graphic_command_pool.queue_family)
-            .queues[0];
-
-        self.submit_command_buffer(
-            queue,
-            *command_buffer,
-            image_available,
-            rendering_finished,
-            may_begin_drawing,
+                }
+            },
         );
-
-        self.present_command_buffer(queue, image_index, rendering_finished);
+        self.main_device.end_command_buffer(command_buffer)?;
+        self.graphic_command_pool.submit(
+            &[command_buffer],
+            &[image_available],
+            &[rendering_finished],
+            &[PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+            may_begin_drawing,
+        )?;
+        self.swapchain.present_image(
+            self.graphic_command_pool.get_queue_family().queues[0],
+            image_index,
+            &[rendering_finished],
+        )?;
 
         Ok(())
     }
@@ -308,75 +304,6 @@ impl Renderer {
         }?;
 
         Ok(render_pass)
-    }
-
-    fn fill_command_buffer<F: FnOnce(vk::CommandBuffer)>(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        f: F,
-    ) -> Result<()> {
-        let begin_info = vk::CommandBufferBeginInfo::builder();
-
-        unsafe {
-            self.main_device
-                .logical_device
-                .begin_command_buffer(command_buffer, &begin_info)?;
-            f(command_buffer);
-            self.main_device
-                .logical_device
-                .end_command_buffer(command_buffer)?;
-        }
-
-        Ok(())
-    }
-
-    fn submit_command_buffer(
-        &self,
-        queue: vk::Queue,
-        command_buffer: vk::CommandBuffer,
-        image_available: vk::Semaphore,
-        rendering_finished: vk::Semaphore,
-        may_begin_drawing: vk::Fence,
-    ) {
-        let wait_semaphores = [image_available];
-        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let command_buffers = [command_buffer];
-        let signal_semaphores = [rendering_finished];
-
-        let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(&wait_semaphores)
-            .wait_dst_stage_mask(&wait_stages)
-            .command_buffers(&command_buffers)
-            .signal_semaphores(&signal_semaphores);
-
-        unsafe {
-            self.main_device
-                .logical_device
-                .queue_submit(queue, &[submit_info.build()], may_begin_drawing)
-                .unwrap();
-        }
-    }
-
-    fn present_command_buffer(
-        &self,
-        queue: vk::Queue,
-        image_index: u32,
-        rendering_finished: vk::Semaphore,
-    ) {
-        let swapchains = [self.swapchain.swapchain];
-        let image_indices = [image_index];
-
-        let present_info = vk::PresentInfoKHR::builder()
-            .wait_semaphores(slice::from_ref(&rendering_finished))
-            .swapchains(&swapchains)
-            .image_indices(&image_indices);
-
-        unsafe {
-            self.swapchain
-                .swapchain_loader
-                .queue_present(queue, &present_info)
-                .unwrap();
-        }
     }
 
     fn add_render_pass<F: FnOnce(vk::CommandBuffer)>(

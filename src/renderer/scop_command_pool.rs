@@ -50,8 +50,12 @@ impl ScopCommandPool {
         Ok(())
     }
 
-    pub fn get_command_buffer(&self, index: u32) -> &vk::CommandBuffer {
-        &self.command_buffers[index as usize]
+    pub fn get_command_buffer(&self, index: u32) -> vk::CommandBuffer {
+        self.command_buffers[index as usize]
+    }
+
+    pub fn get_queue_family(&self) -> &QueueFamily {
+        self.device.get_queue_family(self.queue_family)
     }
 
     pub fn begin_single_time_commands(&self) -> Result<vk::CommandBuffer> {
@@ -90,7 +94,7 @@ impl ScopCommandPool {
         let submit_info =
             vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&command_buffer));
 
-        let queue = self.device.get_queue_family(self.queue_family).queues[0];
+        let queue = self.get_queue_family().queues[0];
 
         unsafe {
             self.device.logical_device.queue_submit(
@@ -105,6 +109,31 @@ impl ScopCommandPool {
             self.device
                 .logical_device
                 .free_command_buffers(self.command_pool, std::slice::from_ref(&command_buffer))
+        };
+
+        Ok(())
+    }
+
+    pub fn submit(
+        &self,
+        command_buffers: &[vk::CommandBuffer],
+        wait_semaphores: &[vk::Semaphore],
+        signal_semaphores: &[vk::Semaphore],
+        wait_stages: &[vk::PipelineStageFlags],
+        fence: vk::Fence,
+    ) -> Result<()> {
+        let submit_info = vk::SubmitInfo::builder()
+            .wait_semaphores(&wait_semaphores)
+            .wait_dst_stage_mask(&wait_stages)
+            .command_buffers(&command_buffers)
+            .signal_semaphores(&signal_semaphores);
+
+        let queue = self.get_queue_family().queues[0];
+
+        unsafe {
+            self.device
+                .logical_device
+                .queue_submit(queue, &[submit_info.build()], fence)?
         };
 
         Ok(())

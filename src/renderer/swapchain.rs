@@ -4,7 +4,9 @@ use anyhow::{Context, Result};
 use ash::{
     extensions,
     vk::{
-        self, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo, ImageSubresourceRange, ImageTiling, ImageUsageFlags, ImageViewCreateInfo, MemoryAllocateInfo, PhysicalDeviceMemoryProperties, QueueFlags, SampleCountFlags
+        self, FormatFeatureFlags, ImageAspectFlags, ImageCreateInfo, ImageSubresourceRange,
+        ImageTiling, ImageUsageFlags, ImageViewCreateInfo, MemoryAllocateInfo,
+        PhysicalDeviceMemoryProperties, QueueFlags, SampleCountFlags,
     },
     Device,
 };
@@ -151,7 +153,7 @@ impl RendererSwapchain {
         Ok(())
     }
 
-    pub unsafe fn next_image(
+    pub fn next_image(
         &mut self,
         device: &RendererDevice,
     ) -> Result<(
@@ -166,22 +168,25 @@ impl RendererSwapchain {
         let may_begin_drawing = &self.may_begin_drawing[self.current_image];
         let framebuffer = &self.framebuffers[self.current_image];
 
-        let (image_index, _) = self.swapchain_loader.acquire_next_image(
-            self.swapchain,
-            std::u64::MAX,
-            *image_available,
-            vk::Fence::null(),
-        )?;
+        let (image_index, _) = unsafe {
+            self.swapchain_loader.acquire_next_image(
+                self.swapchain,
+                std::u64::MAX,
+                *image_available,
+                vk::Fence::null(),
+            )?
+        };
 
-        device.logical_device.wait_for_fences(
-            slice::from_ref(may_begin_drawing),
-            true,
-            std::u64::MAX,
-        )?;
-
-        device
-            .logical_device
-            .reset_fences(slice::from_ref(may_begin_drawing))?;
+        unsafe {
+            device.logical_device.wait_for_fences(
+                slice::from_ref(may_begin_drawing),
+                true,
+                std::u64::MAX,
+            )?;
+            device
+                .logical_device
+                .reset_fences(slice::from_ref(may_begin_drawing))?;
+        }
 
         self.current_image = (self.current_image + 1) % self.image_count;
 
@@ -194,39 +199,25 @@ impl RendererSwapchain {
         ))
     }
 
-    fn create_sync(&mut self, device: &RendererDevice) -> Result<()> {
-        let semaphore_info = vk::SemaphoreCreateInfo::builder();
+    pub fn present_image(
+        &self,
+        queue: vk::Queue,
+        image_index: u32,
+        wait_semaphores: &[vk::Semaphore],
+    ) -> Result<()> {
+        let swapchains = [self.swapchain];
+        let image_indices = [image_index];
 
-        let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+        let present_info = vk::PresentInfoKHR::builder()
+            .wait_semaphores(wait_semaphores)
+            .swapchains(&swapchains)
+            .image_indices(&image_indices);
 
-        for _ in 0..self.image_views.len() {
-            let semaphore_available = unsafe {
-                device
-                    .logical_device
-                    .create_semaphore(&semaphore_info, None)
-            }?;
-
-            let semaphore_finished = unsafe {
-                device
-                    .logical_device
-                    .create_semaphore(&semaphore_info, None)
-            }?;
-
-            self.image_available.push(semaphore_available);
-            self.rendering_finished.push(semaphore_finished);
-
-            let fence = unsafe { device.logical_device.create_fence(&fence_info, None) }?;
-
-            self.may_begin_drawing.push(fence);
-        }
-
+        unsafe { self.swapchain_loader.queue_present(queue, &present_info)? };
         Ok(())
     }
 
-    pub unsafe fn create_depth_resources(
-        &mut self,
-        device: &RendererDevice,
-    ) -> Result<()> {
+    pub unsafe fn create_depth_resources(&mut self, device: &RendererDevice) -> Result<()> {
         let depth_format = device.find_supported_format(
             vec![
                 vk::Format::D32_SFLOAT,
@@ -339,5 +330,34 @@ impl RendererSwapchain {
 
         self.swapchain_loader
             .destroy_swapchain(self.swapchain, None);
+    }
+
+    fn create_sync(&mut self, device: &RendererDevice) -> Result<()> {
+        let semaphore_info = vk::SemaphoreCreateInfo::builder();
+
+        let fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+
+        for _ in 0..self.image_views.len() {
+            let semaphore_available = unsafe {
+                device
+                    .logical_device
+                    .create_semaphore(&semaphore_info, None)
+            }?;
+
+            let semaphore_finished = unsafe {
+                device
+                    .logical_device
+                    .create_semaphore(&semaphore_info, None)
+            }?;
+
+            self.image_available.push(semaphore_available);
+            self.rendering_finished.push(semaphore_finished);
+
+            let fence = unsafe { device.logical_device.create_fence(&fence_info, None) }?;
+
+            self.may_begin_drawing.push(fence);
+        }
+
+        Ok(())
     }
 }

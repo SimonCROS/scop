@@ -172,6 +172,23 @@ impl RendererDevice {
         self.queue_families.iter().find(|f| f.flags.contains(flags))
     }
 
+    pub fn begin_command_buffer(&self, command_buffer: vk::CommandBuffer) -> Result<()> {
+        let begin_info = vk::CommandBufferBeginInfo::builder();
+
+        unsafe {
+            self.logical_device
+                .begin_command_buffer(command_buffer, &begin_info)?
+        };
+
+        Ok(())
+    }
+
+    pub fn end_command_buffer(&self, command_buffer: vk::CommandBuffer) -> Result<()> {
+        unsafe { self.logical_device.end_command_buffer(command_buffer)? };
+
+        Ok(())
+    }
+
     pub unsafe fn cleanup(&self) {
         dbg!("Cleanup device");
 
