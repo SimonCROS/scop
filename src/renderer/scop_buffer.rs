@@ -32,6 +32,7 @@ impl ScopBuffer {
         let (buffer, device_memory) = unsafe {
             Self::create_buffer(&device, buffer_size, usage_flags, memory_property_flags)?
         };
+
         Ok(Self {
             device,
             mapped: null_mut(),
@@ -66,6 +67,7 @@ impl ScopBuffer {
     pub fn unmap(&mut self) {
         if self.is_mapped() {
             unsafe { self.device.logical_device.unmap_memory(self.device_memory) };
+            self.mapped = null_mut();
         }
     }
 
