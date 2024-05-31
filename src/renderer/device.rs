@@ -140,16 +140,17 @@ impl RendererDevice {
             .map(|(index, _memory_type)| index as _)
     }
 
-    pub unsafe fn find_supported_format(
+    pub fn find_supported_format(
         &self,
         formats: Vec<vk::Format>,
         tiling: vk::ImageTiling,
         features: vk::FormatFeatureFlags,
     ) -> Result<vk::Format> {
         for format in formats {
-            let properties = self
-                .instance
-                .get_physical_device_format_properties(self.physical_device, format);
+            let properties = unsafe {
+                self.instance
+                    .get_physical_device_format_properties(self.physical_device, format)
+            };
 
             if tiling == vk::ImageTiling::LINEAR
                 && (properties.linear_tiling_features & features) == features

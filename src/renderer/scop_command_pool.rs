@@ -28,7 +28,7 @@ impl ScopCommandPool {
                 .create_command_pool(&create_info, None)
         }?;
 
-        Ok(ScopCommandPool {
+        Ok(Self {
             device,
             queue_family: queue_family.id,
             command_pool,

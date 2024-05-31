@@ -4,11 +4,11 @@ pub mod pipeline;
 pub mod scop_buffer;
 pub mod scop_command_pool;
 pub mod scop_image;
+pub mod scop_render_pass;
 pub mod shader;
 pub mod swapchain;
 pub mod window;
 
-use core::slice;
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -29,6 +29,7 @@ use self::{
     device::RendererDevice,
     pipeline::{RendererPipeline, SimplePushConstantData},
     scop_command_pool::ScopCommandPool,
+    scop_render_pass::ScopRenderPass,
     swapchain::RendererSwapchain,
 };
 use raw_window_handle::HasRawDisplayHandle;
@@ -45,7 +46,7 @@ pub struct Renderer {
     pub window: RendererWindow,
     pub main_device: Rc<RendererDevice>,
     pub swapchain: RendererSwapchain,
-    pub render_pass: vk::RenderPass,
+    pub defaut_render_pass: ScopRenderPass,
     pub graphics_pipeline: RendererPipeline,
     pub graphic_command_pool: ScopCommandPool,
     pub frame_count: u32,
@@ -83,13 +84,17 @@ impl Renderer {
 
         let main_device = Rc::new(RendererDevice::new(&instance)?);
 
-        let render_pass = Self::create_render_pass(&main_device, &window)?;
+        let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window)?;
 
         let mut swapchain = RendererSwapchain::new(&instance, &main_device, &window)?;
         unsafe { swapchain.create_depth_resources(&main_device)? };
-        swapchain.create_framebuffers(&main_device, render_pass)?;
+        swapchain.create_framebuffers(&main_device, defaut_render_pass.render_pass)?;
 
-        let graphics_pipeline = RendererPipeline::new(&main_device, swapchain.extent, render_pass)?;
+        let graphics_pipeline = RendererPipeline::new(
+            main_device.clone(),
+            swapchain.extent,
+            defaut_render_pass.render_pass,
+        )?;
 
         let mut graphic_command_pool = ScopCommandPool::new(
             main_device.clone(),
@@ -108,7 +113,7 @@ impl Renderer {
             main_device,
             window,
             swapchain,
-            render_pass,
+            defaut_render_pass,
             graphics_pipeline,
             graphic_command_pool,
             frame_count: 0,
@@ -121,11 +126,9 @@ impl Renderer {
     ) -> Result<()> {
         self.frame_count += 1;
 
-        // acquiring next image:
         let (image_index, image_available, rendering_finished, may_begin_drawing, framebuffer) =
-            unsafe { self.swapchain.next_image(&self.main_device) }.unwrap();
+            self.swapchain.next_image(&self.main_device)?;
 
-        // commands:
         let command_buffer = self.graphic_command_pool.get_command_buffer(image_index);
 
         // let buffer_barrier = BufferMemoryBarrier2::builder()
@@ -143,40 +146,14 @@ impl Renderer {
         // };
 
         self.main_device.begin_command_buffer(command_buffer)?;
-        self.add_render_pass(
-            command_buffer,
-            self.render_pass,
-            framebuffer,
-            |command_buffer| unsafe {
-                self.main_device.logical_device.cmd_bind_pipeline(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.graphics_pipeline.pipeline,
-                );
+        self.defaut_render_pass
+            .begin(command_buffer, framebuffer, self.swapchain.extent);
+        self.graphics_pipeline
+            .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
 
-                for go in game_objects.values() {
-                    let game_object = go.borrow();
+        self.draw_game_objects(game_objects, command_buffer);
 
-                    if let Some(mesh) = &game_object.mesh {
-                        let push = SimplePushConstantData {
-                            model_matrix: game_object.transform.mat(),
-                            normal_matrix: game_object.transform.normal_matrix(),
-                        };
-
-                        self.main_device.logical_device.cmd_push_constants(
-                            command_buffer,
-                            self.graphics_pipeline.pipeline_layout,
-                            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                            0,
-                            crate::utils::any_as_u8_slice(&push),
-                        );
-
-                        mesh.bind(command_buffer);
-                        mesh.draw(command_buffer);
-                    }
-                }
-            },
-        );
+        self.defaut_render_pass.end(command_buffer);
         self.main_device.end_command_buffer(command_buffer)?;
         self.graphic_command_pool.submit(
             &[command_buffer],
@@ -192,6 +169,36 @@ impl Renderer {
         )?;
 
         Ok(())
+    }
+
+    fn draw_game_objects(
+        &self,
+        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
+        command_buffer: vk::CommandBuffer,
+    ) {
+        for go in game_objects.values() {
+            let game_object = go.borrow();
+
+            if let Some(mesh) = &game_object.mesh {
+                let push = SimplePushConstantData {
+                    model_matrix: game_object.transform.mat(),
+                    normal_matrix: game_object.transform.normal_matrix(),
+                };
+
+                unsafe {
+                    self.main_device.logical_device.cmd_push_constants(
+                        command_buffer,
+                        self.graphics_pipeline.pipeline_layout,
+                        ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                        0,
+                        crate::utils::any_as_u8_slice(&push),
+                    );
+                }
+
+                mesh.bind(command_buffer);
+                mesh.draw(command_buffer);
+            }
+        }
     }
 
     fn create_instance(
@@ -218,136 +225,6 @@ impl Renderer {
 
         Ok(instance)
     }
-
-    fn create_render_pass(
-        device: &RendererDevice,
-        window: &RendererWindow,
-    ) -> Result<vk::RenderPass> {
-        let surface_formats = window.formats(device.physical_device)?;
-        let surface_format = surface_formats.first().unwrap();
-        let depth_format = unsafe {
-            device.find_supported_format(
-                vec![
-                    vk::Format::D32_SFLOAT,
-                    vk::Format::D32_SFLOAT_S8_UINT,
-                    vk::Format::D24_UNORM_S8_UINT,
-                ],
-                vk::ImageTiling::OPTIMAL,
-                vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
-            )?
-        };
-
-        let attachments = [
-            vk::AttachmentDescription::builder()
-                .format(surface_format.format)
-                .samples(vk::SampleCountFlags::TYPE_1)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
-                .store_op(vk::AttachmentStoreOp::STORE)
-                .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-                .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-                .initial_layout(vk::ImageLayout::UNDEFINED)
-                .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-                .build(),
-            vk::AttachmentDescription::builder()
-                .format(depth_format)
-                .samples(vk::SampleCountFlags::TYPE_1)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
-                .store_op(vk::AttachmentStoreOp::DONT_CARE)
-                .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-                .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-                .initial_layout(vk::ImageLayout::UNDEFINED)
-                .final_layout(vk::ImageLayout::ATTACHMENT_OPTIMAL)
-                .build(),
-        ];
-
-        let color_attachment_references = [vk::AttachmentReference::builder()
-            .attachment(0)
-            .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .build()];
-
-        let depth_attachment_references = vk::AttachmentReference::builder()
-            .attachment(1)
-            .layout(vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL)
-            .build();
-
-        let subpasses = [vk::SubpassDescription::builder()
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&color_attachment_references)
-            .depth_stencil_attachment(&depth_attachment_references)
-            .build()];
-
-        let subpass_dependencies = [vk::SubpassDependency::builder()
-            .src_subpass(vk::SUBPASS_EXTERNAL)
-            .src_stage_mask(
-                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-                    | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-            )
-            .dst_stage_mask(
-                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-                    | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-            )
-            .dst_access_mask(
-                vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-                    | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-            )
-            .build()];
-
-        let render_pass_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&attachments)
-            .subpasses(&subpasses)
-            .dependencies(&subpass_dependencies);
-
-        let render_pass = unsafe {
-            device
-                .logical_device
-                .create_render_pass(&render_pass_info, None)
-        }?;
-
-        Ok(render_pass)
-    }
-
-    fn add_render_pass<F: FnOnce(vk::CommandBuffer)>(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        render_pass: vk::RenderPass,
-        framebuffer: vk::Framebuffer,
-        f: F,
-    ) {
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            },
-            vk::ClearValue {
-                depth_stencil: vk::ClearDepthStencilValue {
-                    depth: 1f32,
-                    stencil: 0,
-                },
-            },
-        ];
-
-        let render_pass_info = vk::RenderPassBeginInfo::builder()
-            .render_pass(render_pass)
-            .framebuffer(framebuffer)
-            .render_area(vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: self.swapchain.extent,
-            })
-            .clear_values(&clear_values);
-
-        unsafe {
-            self.main_device.logical_device.cmd_begin_render_pass(
-                command_buffer,
-                &render_pass_info,
-                vk::SubpassContents::INLINE,
-            );
-            f(command_buffer);
-            self.main_device
-                .logical_device
-                .cmd_end_render_pass(command_buffer);
-        }
-    }
 }
 
 impl Drop for Renderer {
@@ -356,12 +233,9 @@ impl Drop for Renderer {
             let _ = self.main_device.logical_device.device_wait_idle();
 
             self.graphic_command_pool.cleanup();
-            self.graphics_pipeline
-                .cleanup(&self.main_device.logical_device);
+            self.graphics_pipeline.cleanup();
             self.swapchain.cleanup(&self.main_device.logical_device);
-            self.main_device
-                .logical_device
-                .destroy_render_pass(self.render_pass, None);
+            self.defaut_render_pass.cleanup();
             self.main_device.cleanup();
             self.debug.cleanup();
             self.window.cleanup();

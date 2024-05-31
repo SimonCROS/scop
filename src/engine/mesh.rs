@@ -82,42 +82,46 @@ impl Mesh {
         }
     }
 
-    pub unsafe fn bind(&self, command_buffer: CommandBuffer) {
-        self.device.logical_device.cmd_bind_vertex_buffers(
-            command_buffer,
-            0,
-            &[self.vertex_buffer.buffer],
-            &[0],
-        );
-
-        if let Some(index_buffer) = &self.index_buffer {
-            self.device.logical_device.cmd_bind_index_buffer(
+    pub fn bind(&self, command_buffer: CommandBuffer) {
+        unsafe {
+            self.device.logical_device.cmd_bind_vertex_buffers(
                 command_buffer,
-                index_buffer.buffer,
                 0,
-                vk::IndexType::UINT32,
+                &[self.vertex_buffer.buffer],
+                &[0],
             );
+
+            if let Some(index_buffer) = &self.index_buffer {
+                self.device.logical_device.cmd_bind_index_buffer(
+                    command_buffer,
+                    index_buffer.buffer,
+                    0,
+                    vk::IndexType::UINT32,
+                );
+            }
         }
     }
 
-    pub unsafe fn draw(&self, command_buffer: CommandBuffer) {
-        if let Some(index_buffer) = &self.index_buffer {
-            self.device.logical_device.cmd_draw_indexed(
-                command_buffer,
-                index_buffer.instance_count as u32,
-                1,
-                0,
-                0,
-                0,
-            );
-        } else {
-            self.device.logical_device.cmd_draw(
-                command_buffer,
-                self.vertex_buffer.instance_count as u32,
-                1,
-                0,
-                0,
-            );
+    pub fn draw(&self, command_buffer: CommandBuffer) {
+        unsafe {
+            if let Some(index_buffer) = &self.index_buffer {
+                self.device.logical_device.cmd_draw_indexed(
+                    command_buffer,
+                    index_buffer.instance_count as u32,
+                    1,
+                    0,
+                    0,
+                    0,
+                );
+            } else {
+                self.device.logical_device.cmd_draw(
+                    command_buffer,
+                    self.vertex_buffer.instance_count as u32,
+                    1,
+                    0,
+                    0,
+                );
+            }
         }
     }
 }

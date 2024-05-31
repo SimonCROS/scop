@@ -1,10 +1,13 @@
 use core::slice;
-use std::{ffi, mem};
+use std::{ffi, mem, rc::Rc};
 
 use anyhow::Result;
 use ash::vk::{self, PipelineDepthStencilStateCreateInfo, PushConstantRange, ShaderStageFlags};
 
-use crate::{engine::mesh::Vertex, math::{Matrix3, Matrix4}};
+use crate::{
+    engine::mesh::Vertex,
+    math::{Matrix3, Matrix4},
+};
 
 use super::{device::RendererDevice, shader::Shader};
 
@@ -14,18 +17,17 @@ pub struct SimplePushConstantData {
 }
 
 pub struct RendererPipeline {
+    device: Rc<RendererDevice>,
     pub pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
 }
 
 impl RendererPipeline {
     pub fn new(
-        device: &RendererDevice,
+        device: Rc<RendererDevice>,
         extent: vk::Extent2D,
         render_pass: vk::RenderPass,
     ) -> Result<RendererPipeline> {
-        dbg!("New pipeline");
-
         let vert = Shader::from_code_vert(
             &device.logical_device,
             vk_shader_macros::include_glsl!("./shaders/default.vert"),
@@ -65,9 +67,35 @@ impl RendererPipeline {
         }
 
         Ok(RendererPipeline {
+            device,
             pipeline,
             pipeline_layout,
         })
+    }
+
+    pub fn bind(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline_bind_point: vk::PipelineBindPoint,
+    ) {
+        unsafe {
+            self.device.logical_device.cmd_bind_pipeline(
+                command_buffer,
+                pipeline_bind_point,
+                self.pipeline,
+            );
+        }
+    }
+
+    pub fn cleanup(&self) {
+        unsafe {
+            self.device
+                .logical_device
+                .destroy_pipeline(self.pipeline, None);
+            self.device
+                .logical_device
+                .destroy_pipeline_layout(self.pipeline_layout, None);
+        }
     }
 
     fn create_graphics_pipeline(
@@ -178,11 +206,5 @@ impl RendererPipeline {
         }[0];
 
         Ok((pipeline_layout, pipeline))
-    }
-
-    pub unsafe fn cleanup(&self, device: &ash::Device) {
-        dbg!("Cleanup pipeline");
-        device.destroy_pipeline(self.pipeline, None);
-        device.destroy_pipeline_layout(self.pipeline_layout, None);
     }
 }
