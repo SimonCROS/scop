@@ -117,7 +117,7 @@ impl RendererWindow {
         Ok(())
     }
 
-    pub unsafe fn cleanup(&self) {
-        self.surface_loader.destroy_surface(self.surface, None);
+    pub fn cleanup(&self) {
+        unsafe { self.surface_loader.destroy_surface(self.surface, None) };
     }
 }

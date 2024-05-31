@@ -126,7 +126,7 @@ impl Renderer {
         self.frame_count += 1;
 
         let (image_index, image_available, rendering_finished, may_begin_drawing) =
-            self.swapchain.next_image(&self.main_device)?;
+            self.swapchain.next_image()?;
 
         let command_buffer = self.graphic_command_pool.get_command_buffer(image_index);
 
@@ -231,17 +231,16 @@ impl Renderer {
 
 impl Drop for Renderer {
     fn drop(&mut self) {
-        unsafe {
-            self.wait_gpu();
+        self.wait_gpu();
 
-            self.graphic_command_pool.cleanup();
-            self.graphics_pipeline.cleanup();
-            self.swapchain.cleanup(&self.main_device.logical_device);
-            self.defaut_render_pass.cleanup();
-            self.main_device.cleanup();
-            self.debug.cleanup();
-            self.window.cleanup();
-            self.instance.destroy_instance(None);
-        }
+        self.graphic_command_pool.cleanup();
+        self.graphics_pipeline.cleanup();
+        self.swapchain.cleanup();
+        self.defaut_render_pass.cleanup();
+        self.main_device.cleanup();
+        self.debug.cleanup();
+        self.window.cleanup();
+
+        unsafe { self.instance.destroy_instance(None) };
     }
 }

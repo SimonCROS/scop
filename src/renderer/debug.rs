@@ -41,17 +41,19 @@ impl RendererDebug {
             ..Default::default()
         };
 
-        let debug_messenger = unsafe {
-            debug_utils.create_debug_utils_messenger(&messenger_info, None)?
-        };
+        let debug_messenger =
+            unsafe { debug_utils.create_debug_utils_messenger(&messenger_info, None)? };
 
         Ok(Self {
             debug_utils,
-            debug_messenger
+            debug_messenger,
         })
     }
 
-    pub unsafe fn cleanup(&mut self) {
-        self.debug_utils.destroy_debug_utils_messenger(self.debug_messenger, None);
+    pub fn cleanup(&mut self) {
+        unsafe {
+            self.debug_utils
+                .destroy_debug_utils_messenger(self.debug_messenger, None)
+        };
     }
 }
