@@ -1,4 +1,4 @@
-use std::{ffi::c_void, mem, ptr::null_mut, rc::Rc};
+use std::{ffi::c_void, ptr::null_mut, rc::Rc};
 
 use anyhow::{Context, Ok, Result};
 use ash::{util::Align, vk};
@@ -69,6 +69,23 @@ impl ScopBuffer {
             unsafe { self.device.logical_device.unmap_memory(self.device_memory) };
             self.mapped = null_mut();
         }
+    }
+
+    pub fn flush(&self, size: vk::DeviceSize, offset: vk::DeviceSize) -> Result<()> {
+        assert!(self.is_mapped());
+
+        let range = vk::MappedMemoryRange::builder()
+            .memory(self.device_memory)
+            .offset(offset)
+            .size(size);
+
+        unsafe {
+            self.device
+                .logical_device
+                .flush_mapped_memory_ranges(&[*range])?
+        };
+
+        Ok(())
     }
 
     pub fn write_to_buffer<T: Copy>(&mut self, data: &[T], offset: vk::DeviceSize) {

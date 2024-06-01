@@ -147,45 +147,43 @@ impl<'a> MeshBuilder<'a> {
     }
 
     pub fn build(self) -> Result<Mesh> {
-        unsafe {
-            let vertices = self
-                .vertices
-                .context("Cannot build a Mesh without vertices.")?;
-            let vertices_count = vertices.len();
-            let mut vertex_buffer = ScopBuffer::new(
+        let vertices = self
+            .vertices
+            .context("Cannot build a Mesh without vertices.")?;
+        let vertices_count = vertices.len();
+        let mut vertex_buffer = ScopBuffer::new(
+            self.device.clone(),
+            vertices_count,
+            size_of::<Vertex>() as vk::DeviceSize,
+            BufferUsageFlags::VERTEX_BUFFER,
+            MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
+            1,
+        )?;
+        vertex_buffer.map(WHOLE_SIZE, 0)?;
+        vertex_buffer.write_to_buffer(&vertices, 0);
+        vertex_buffer.unmap();
+
+        let index_buffer = self.indices.map_or(Ok(None), |indices| {
+            let indices_count = indices.len();
+            let mut index_buffer = ScopBuffer::new(
                 self.device.clone(),
-                vertices_count,
-                size_of::<Vertex>() as vk::DeviceSize,
-                BufferUsageFlags::VERTEX_BUFFER,
+                indices_count,
+                size_of::<u32>() as vk::DeviceSize,
+                BufferUsageFlags::INDEX_BUFFER,
                 MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
                 1,
             )?;
-            vertex_buffer.map(WHOLE_SIZE, 0)?;
-            vertex_buffer.write_to_buffer(&vertices, 0);
-            vertex_buffer.unmap();
+            index_buffer.map(WHOLE_SIZE, 0)?;
+            index_buffer.write_to_buffer(&indices, 0);
+            index_buffer.unmap();
 
-            let index_buffer = self.indices.map_or(Ok(None), |indices| {
-                let indices_count = indices.len();
-                let mut index_buffer = ScopBuffer::new(
-                    self.device.clone(),
-                    indices_count,
-                    size_of::<u32>() as vk::DeviceSize,
-                    BufferUsageFlags::INDEX_BUFFER,
-                    MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
-                    1,
-                )?;
-                index_buffer.map(WHOLE_SIZE, 0)?;
-                index_buffer.write_to_buffer(&indices, 0);
-                index_buffer.unmap();
+            Ok(Some(index_buffer))
+        })?;
 
-                Ok(Some(index_buffer))
-            })?;
-
-            Ok(Mesh {
-                device: self.device,
-                vertex_buffer,
-                index_buffer,
-            })
-        }
+        Ok(Mesh {
+            device: self.device,
+            vertex_buffer,
+            index_buffer,
+        })
     }
 }

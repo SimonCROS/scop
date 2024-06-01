@@ -17,6 +17,13 @@ pub struct SimplePushConstantData {
     pub normal_matrix: Matrix3,
 }
 
+#[derive(Copy, Clone)]
+pub struct ScopGlobalUbo {
+    pub projection_matrix: Matrix4,
+    pub view_matrix: Matrix4,
+    pub inverse_view_matrix: Matrix4,
+}
+
 pub struct RendererPipeline {
     device: Rc<RendererDevice>,
     pub pipeline: vk::Pipeline,

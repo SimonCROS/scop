@@ -6,14 +6,15 @@ pub mod scop_command_pool;
 pub mod scop_framebuffer;
 pub mod scop_image;
 pub mod scop_render_pass;
-pub mod shader;
 pub mod scop_swapchain;
+pub mod shader;
 pub mod window;
 
 use std::{
     cell::RefCell,
     collections::HashMap,
     ffi::{self, c_char, CString},
+    mem::size_of,
     rc::Rc,
 };
 
@@ -22,8 +23,10 @@ use ash::{
     extensions::ext,
     vk::{self, CommandPoolCreateFlags, PipelineStageFlags, QueueFlags, ShaderStageFlags},
 };
+use pipeline::ScopGlobalUbo;
+use scop_buffer::ScopBuffer;
 
-use crate::engine::GameObject;
+use crate::engine::{camera::Camera, GameObject};
 
 use self::{
     debug::RendererDebug,
@@ -49,8 +52,9 @@ pub struct Renderer {
     pub swapchain: ScopSwapchain,
     pub defaut_render_pass: ScopRenderPass,
     pub graphics_pipeline: RendererPipeline,
-    pub graphic_command_pool: ScopCommandPool,
+    pub graphic_command_pools: Vec<ScopCommandPool>,
     pub frame_count: u32,
+    pub ubo_buffers: Vec<ScopBuffer>,
 }
 
 impl Renderer {
@@ -95,15 +99,29 @@ impl Renderer {
             defaut_render_pass.render_pass,
         )?;
 
-        let mut graphic_command_pool = ScopCommandPool::new(
-            main_device.clone(),
-            main_device
-                .get_queue_family_with(QueueFlags::GRAPHICS)
-                .unwrap(),
-            CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
-        )?;
+        let mut graphic_command_pools =
+            Vec::<ScopCommandPool>::with_capacity(swapchain.image_count);
+        let mut ubo_buffers = Vec::<ScopBuffer>::with_capacity(swapchain.image_count);
+        for _ in 0..swapchain.image_count {
+            let mut graphic_command_pool = ScopCommandPool::new(
+                main_device.clone(),
+                main_device
+                    .get_queue_family_with(QueueFlags::GRAPHICS)
+                    .unwrap(),
+                CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+            )?;
+            graphic_command_pool.create_command_buffers(1 as u32)?;
+            graphic_command_pools.push(graphic_command_pool);
 
-        graphic_command_pool.create_command_buffers(swapchain.image_count as u32)?;
+            ubo_buffers.push(ScopBuffer::new(
+                main_device.clone(),
+                1,
+                size_of::<ScopGlobalUbo>() as u64,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE,
+                1,
+            )?);
+        }
 
         Ok(Self {
             entry,
@@ -114,13 +132,15 @@ impl Renderer {
             swapchain,
             defaut_render_pass,
             graphics_pipeline,
-            graphic_command_pool,
+            graphic_command_pools,
             frame_count: 0,
+            ubo_buffers,
         })
     }
 
     pub fn handle_draw_request(
         &mut self,
+        camera: &Camera,
         game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
     ) -> Result<()> {
         self.frame_count += 1;
@@ -128,7 +148,20 @@ impl Renderer {
         let (image_index, image_available, rendering_finished, may_begin_drawing) =
             self.swapchain.next_image()?;
 
-        let command_buffer = self.graphic_command_pool.get_command_buffer(image_index);
+        let ubo = ScopGlobalUbo {
+            projection_matrix: *camera.get_projection(),
+            view_matrix: *camera.get_view(),
+            inverse_view_matrix: *camera.get_inverse_view(),
+        };
+
+        let ubo_buffer = &mut self.ubo_buffers[image_index as usize];
+        ubo_buffer.map(vk::WHOLE_SIZE, 0)?;
+        ubo_buffer.write_to_buffer(&[ubo], 0);
+        ubo_buffer.flush(vk::WHOLE_SIZE, 0)?;
+        ubo_buffer.unmap();
+
+        let command_pool = &self.graphic_command_pools[image_index as usize];
+        let command_buffer = command_pool.get_command_buffer(0);
 
         // let buffer_barrier = BufferMemoryBarrier2::builder()
         //     .src_access_mask(AccessFlags2::HOST_WRITE)
@@ -153,7 +186,7 @@ impl Renderer {
 
         self.defaut_render_pass.end(command_buffer);
         self.main_device.end_command_buffer(command_buffer)?;
-        self.graphic_command_pool.submit(
+        command_pool.submit(
             &[command_buffer],
             &[image_available],
             &[rendering_finished],
@@ -161,7 +194,7 @@ impl Renderer {
             may_begin_drawing,
         )?;
         self.swapchain.present_image(
-            self.graphic_command_pool.get_queue_family().queues[0],
+            command_pool.get_queue_family().queues[0],
             image_index,
             &[rendering_finished],
         )?;
@@ -233,7 +266,8 @@ impl Drop for Renderer {
     fn drop(&mut self) {
         self.wait_gpu();
 
-        self.graphic_command_pool.cleanup();
+        self.ubo_buffers.iter_mut().for_each(ScopBuffer::cleanup);
+        self.graphic_command_pools.iter_mut().for_each(ScopCommandPool::cleanup);
         self.graphics_pipeline.cleanup();
         self.swapchain.cleanup();
         self.defaut_render_pass.cleanup();

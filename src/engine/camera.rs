@@ -8,13 +8,15 @@ pub struct Camera {
     inverse_view_matrix: Matrix4,
 }
 
-pub struct GpuCameraData {
-    projection_matrix: Matrix4,
-    view_matrix: Matrix4,
-    inverse_view_matrix: Matrix4,
-}
-
 impl Camera {
+    pub fn empty() -> Camera {
+        Self {
+            projection_matrix: Matrix4::identity(),
+            view_matrix: Matrix4::identity(),
+            inverse_view_matrix: Matrix4::identity(),
+        }
+    }
+
     pub fn set_orthographic_projection(
         &mut self,
         left: f32,
