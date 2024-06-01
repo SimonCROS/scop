@@ -3,6 +3,8 @@ pub mod device;
 pub mod pipeline;
 pub mod scop_buffer;
 pub mod scop_command_pool;
+pub mod scop_descriptor_layout;
+pub mod scop_descriptor_pool;
 pub mod scop_framebuffer;
 pub mod scop_image;
 pub mod scop_render_pass;
@@ -23,8 +25,10 @@ use ash::{
     extensions::ext,
     vk::{self, CommandPoolCreateFlags, PipelineStageFlags, QueueFlags, ShaderStageFlags},
 };
-use pipeline::ScopGlobalUbo;
+use pipeline::ScopGpuCameraData;
 use scop_buffer::ScopBuffer;
+use scop_descriptor_layout::ScopDescriptorSetLayout;
+use scop_descriptor_pool::ScopDescriptorPool;
 
 use crate::engine::{camera::Camera, GameObject};
 
@@ -51,10 +55,13 @@ pub struct Renderer {
     pub main_device: Rc<RendererDevice>,
     pub swapchain: ScopSwapchain,
     pub defaut_render_pass: ScopRenderPass,
+    pub global_descriptor_pool: ScopDescriptorPool,
+    pub global_descriptor_set_layout: ScopDescriptorSetLayout,
+    pub global_descriptor_sets: Vec<vk::DescriptorSet>,
     pub graphics_pipeline: RendererPipeline,
     pub graphic_command_pools: Vec<ScopCommandPool>,
     pub frame_count: u32,
-    pub ubo_buffers: Vec<ScopBuffer>,
+    pub camera_buffers: Vec<ScopBuffer>,
 }
 
 impl Renderer {
@@ -93,15 +100,32 @@ impl Renderer {
 
         let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window, &swapchain)?;
 
+        let global_descriptor_pool = ScopDescriptorPool::builder(&main_device)
+            .add_size(
+                vk::DescriptorType::UNIFORM_BUFFER,
+                swapchain.image_count as u32,
+            )
+            .max_sets(swapchain.image_count as u32)
+            .build()?;
+
+        let global_descriptor_set_layout = ScopDescriptorSetLayout::builder(&main_device)
+            .add_binding(
+                0,
+                vk::DescriptorType::UNIFORM_BUFFER,
+                vk::ShaderStageFlags::VERTEX,
+            )
+            .build()?;
+
         let graphics_pipeline = RendererPipeline::new(
             main_device.clone(),
             swapchain.extent,
             defaut_render_pass.render_pass,
+            &[global_descriptor_set_layout.set_layout],
         )?;
 
         let mut graphic_command_pools =
             Vec::<ScopCommandPool>::with_capacity(swapchain.image_count);
-        let mut ubo_buffers = Vec::<ScopBuffer>::with_capacity(swapchain.image_count);
+        let mut camera_buffers = Vec::<ScopBuffer>::with_capacity(swapchain.image_count);
         for _ in 0..swapchain.image_count {
             let mut graphic_command_pool = ScopCommandPool::new(
                 main_device.clone(),
@@ -113,15 +137,21 @@ impl Renderer {
             graphic_command_pool.create_command_buffers(1 as u32)?;
             graphic_command_pools.push(graphic_command_pool);
 
-            ubo_buffers.push(ScopBuffer::new(
+            camera_buffers.push(ScopBuffer::new(
                 main_device.clone(),
                 1,
-                size_of::<ScopGlobalUbo>() as u64,
+                size_of::<ScopGpuCameraData>() as u64,
                 vk::BufferUsageFlags::UNIFORM_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE,
                 1,
             )?);
         }
+
+        let global_descriptor_sets = global_descriptor_pool.write_buffers(
+            0,
+            &global_descriptor_set_layout,
+            &camera_buffers,
+        )?;
 
         Ok(Self {
             entry,
@@ -131,10 +161,13 @@ impl Renderer {
             window,
             swapchain,
             defaut_render_pass,
+            global_descriptor_pool,
+            global_descriptor_set_layout,
+            global_descriptor_sets,
             graphics_pipeline,
             graphic_command_pools,
             frame_count: 0,
-            ubo_buffers,
+            camera_buffers,
         })
     }
 
@@ -148,17 +181,16 @@ impl Renderer {
         let (image_index, image_available, rendering_finished, may_begin_drawing) =
             self.swapchain.next_image()?;
 
-        let ubo = ScopGlobalUbo {
-            projection_matrix: *camera.get_projection(),
-            view_matrix: *camera.get_view(),
-            inverse_view_matrix: *camera.get_inverse_view(),
+        let camera_data = ScopGpuCameraData {
+            projection: *camera.get_projection(),
+            view: *camera.get_view(),
         };
 
-        let ubo_buffer = &mut self.ubo_buffers[image_index as usize];
-        ubo_buffer.map(vk::WHOLE_SIZE, 0)?;
-        ubo_buffer.write_to_buffer(&[ubo], 0);
-        ubo_buffer.flush(vk::WHOLE_SIZE, 0)?;
-        ubo_buffer.unmap();
+        let camera_buffer = &mut self.camera_buffers[image_index as usize];
+        camera_buffer.map(vk::WHOLE_SIZE, 0)?;
+        camera_buffer.write_to_buffer(&[camera_data], 0);
+        camera_buffer.flush(vk::WHOLE_SIZE, 0)?;
+        camera_buffer.unmap();
 
         let command_pool = &self.graphic_command_pools[image_index as usize];
         let command_buffer = command_pool.get_command_buffer(0);
@@ -181,6 +213,11 @@ impl Renderer {
         self.defaut_render_pass.begin(command_buffer, image_index);
         self.graphics_pipeline
             .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
+        self.graphics_pipeline.bind_descriptor_sets(
+            command_buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            &[self.global_descriptor_sets[image_index as usize]],
+        );
 
         self.draw_game_objects(game_objects, command_buffer);
 
@@ -266,9 +303,13 @@ impl Drop for Renderer {
     fn drop(&mut self) {
         self.wait_gpu();
 
-        self.ubo_buffers.iter_mut().for_each(ScopBuffer::cleanup);
-        self.graphic_command_pools.iter_mut().for_each(ScopCommandPool::cleanup);
+        self.camera_buffers.iter_mut().for_each(ScopBuffer::cleanup);
+        self.graphic_command_pools
+            .iter_mut()
+            .for_each(ScopCommandPool::cleanup);
         self.graphics_pipeline.cleanup();
+        self.global_descriptor_pool.cleanup();
+        self.global_descriptor_set_layout.cleanup(&self.main_device);
         self.swapchain.cleanup();
         self.defaut_render_pass.cleanup();
         self.main_device.cleanup();

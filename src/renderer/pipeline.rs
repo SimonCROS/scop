@@ -18,10 +18,9 @@ pub struct SimplePushConstantData {
 }
 
 #[derive(Copy, Clone)]
-pub struct ScopGlobalUbo {
-    pub projection_matrix: Matrix4,
-    pub view_matrix: Matrix4,
-    pub inverse_view_matrix: Matrix4,
+pub struct ScopGpuCameraData {
+    pub projection: Matrix4,
+    pub view: Matrix4,
 }
 
 pub struct RendererPipeline {
@@ -35,6 +34,7 @@ impl RendererPipeline {
         device: Rc<RendererDevice>,
         extent: vk::Extent2D,
         render_pass: vk::RenderPass,
+        set_layouts: &[vk::DescriptorSetLayout],
     ) -> Result<RendererPipeline> {
         let vert = Shader::from_code_vert(
             &device.logical_device,
@@ -66,6 +66,7 @@ impl RendererPipeline {
                 extent,
                 vertex_input_info,
                 &shader_stages,
+                set_layouts,
             )?
         };
 
@@ -95,6 +96,24 @@ impl RendererPipeline {
         }
     }
 
+    pub fn bind_descriptor_sets(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline_bind_point: vk::PipelineBindPoint,
+        descriptor_sets: &[vk::DescriptorSet],
+    ) {
+        unsafe {
+            self.device.logical_device.cmd_bind_descriptor_sets(
+                command_buffer,
+                pipeline_bind_point,
+                self.pipeline_layout,
+                0,
+                descriptor_sets,
+                &[],
+            )
+        }
+    }
+
     pub fn cleanup(&self) {
         unsafe {
             self.device
@@ -112,6 +131,7 @@ impl RendererPipeline {
         extent: vk::Extent2D,
         vertex_input_info: vk::PipelineVertexInputStateCreateInfoBuilder,
         shader_stages: &[vk::PipelineShaderStageCreateInfo],
+        set_layouts: &[vk::DescriptorSetLayout],
     ) -> Result<(vk::PipelineLayout, vk::Pipeline)> {
         // input:
 
@@ -180,7 +200,8 @@ impl RendererPipeline {
             .size(mem::size_of::<SimplePushConstantData>() as u32);
 
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
-            .push_constant_ranges(slice::from_ref(&push_constant_range));
+            .push_constant_ranges(slice::from_ref(&push_constant_range))
+            .set_layouts(set_layouts);
         let pipeline_layout =
             unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
 

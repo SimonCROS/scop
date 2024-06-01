@@ -12,7 +12,7 @@ pub struct ScopBuffer {
     device_memory: vk::DeviceMemory,
     buffer_size: vk::DeviceSize,
     pub instance_count: usize,
-    instance_size: vk::DeviceSize,
+    pub instance_size: vk::DeviceSize,
     alignment_size: vk::DeviceSize,
     usage_flags: vk::BufferUsageFlags,
     memory_property_flags: vk::MemoryPropertyFlags,
