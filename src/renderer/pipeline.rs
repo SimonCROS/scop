@@ -1,8 +1,8 @@
 use core::slice;
 use std::{ffi, mem, rc::Rc};
 
-use anyhow::{bail, Result};
-use ash::vk::{self, PipelineDepthStencilStateCreateInfo, PushConstantRange, ShaderStageFlags};
+use anyhow::Result;
+use ash::vk::{self, PushConstantRange, ShaderStageFlags};
 
 use crate::{
     engine::mesh::Vertex,

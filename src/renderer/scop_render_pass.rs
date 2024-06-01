@@ -51,7 +51,7 @@ impl ScopRenderPass {
                 .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
                 .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
                 .initial_layout(vk::ImageLayout::UNDEFINED)
-                .final_layout(vk::ImageLayout::ATTACHMENT_OPTIMAL)
+                .final_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
                 .build(),
         ];
 
@@ -62,7 +62,7 @@ impl ScopRenderPass {
 
         let depth_attachment_references = vk::AttachmentReference::builder()
             .attachment(1)
-            .layout(vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL)
+            .layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
             .build();
 
         let subpasses = [vk::SubpassDescription::builder()

@@ -30,8 +30,6 @@ impl ScopSwapchain {
         device: Rc<RendererDevice>,
         window: &RendererWindow,
     ) -> Result<Self> {
-        dbg!("New swapchain");
-
         let graphics_queue_family = device.get_queue_family_with(QueueFlags::GRAPHICS).unwrap();
 
         let capabilities = window.capabilities(device.physical_device)?;
