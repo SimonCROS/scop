@@ -10,14 +10,14 @@ use ash::vk::{
 };
 
 use crate::{
-    math::{Vector2, Vector3, Vector4},
+    math::{Vector2, Vector3},
     renderer::{device::RendererDevice, scop_buffer::ScopBuffer},
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vertex {
-    pub position: Vector4,
-    pub color: Vector4,
+    pub position: Vector3,
+    pub color: Vector3,
     pub normal: Vector3,
     pub uv: Vector2,
 }
@@ -40,13 +40,13 @@ impl Vertex {
             vk::VertexInputAttributeDescription {
                 location: 0,
                 binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
+                format: vk::Format::R32G32B32_SFLOAT,
                 offset: offset_of!(Vertex, position) as u32,
             },
             vk::VertexInputAttributeDescription {
                 location: 1,
                 binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
+                format: vk::Format::R32G32B32_SFLOAT,
                 offset: offset_of!(Vertex, color) as u32,
             },
             vk::VertexInputAttributeDescription {
