@@ -1,12 +1,13 @@
 use core::slice;
 use std::{ffi, mem, rc::Rc};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use ash::vk::{self, PipelineDepthStencilStateCreateInfo, PushConstantRange, ShaderStageFlags};
 
 use crate::{
     engine::mesh::Vertex,
     math::{Matrix3, Matrix4},
+    utils::read_shader,
 };
 
 use super::{device::RendererDevice, shader::Shader};
@@ -30,11 +31,11 @@ impl RendererPipeline {
     ) -> Result<RendererPipeline> {
         let vert = Shader::from_code_vert(
             &device.logical_device,
-            vk_shader_macros::include_glsl!("./shaders/default.vert"),
+            &read_shader("./shaders/default.vert.spv")?,
         )?;
         let frag = Shader::from_code_frag(
             &device.logical_device,
-            vk_shader_macros::include_glsl!("./shaders/default.frag"),
+            &read_shader("./shaders/default.frag.spv")?,
         )?;
 
         let entry_point = ffi::CString::new("main").unwrap();
