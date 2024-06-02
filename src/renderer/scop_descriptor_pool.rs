@@ -3,9 +3,7 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk;
 
-use super::{
-    device::RendererDevice, scop_buffer::ScopBuffer, scop_descriptor_layout::ScopDescriptorSetLayout,
-};
+use super::{RendererDevice, ScopBuffer, ScopDescriptorSetLayout};
 
 pub struct ScopDescriptorPool {
     device: Rc<RendererDevice>,

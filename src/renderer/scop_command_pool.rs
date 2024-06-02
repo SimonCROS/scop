@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk::{self, CommandPoolCreateFlags};
 
-use super::device::{QueueFamily, QueueFamilyId, RendererDevice};
+use super::{QueueFamily, QueueFamilyId, RendererDevice};
 
 pub struct ScopCommandPool {
     device: Rc<RendererDevice>,

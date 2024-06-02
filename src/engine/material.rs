@@ -1,6 +1,6 @@
 use ash::vk::DescriptorSet;
 
-use crate::renderer::pipeline::RendererPipeline;
+use crate::renderer::RendererPipeline;
 
 enum MaterialPass {
     MainColor,

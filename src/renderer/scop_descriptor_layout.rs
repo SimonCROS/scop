@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Ok, Result};
 use ash::vk;
 
-use super::device::RendererDevice;
+use super::RendererDevice;
 
 pub struct ScopDescriptorSetLayout {
     pub set_layout: vk::DescriptorSetLayout,
@@ -44,7 +44,7 @@ impl<'a> ScopDescriptorSetLayoutBuilder<'a> {
                 .binding(binding)
                 .descriptor_type(descriptor_type)
                 .stage_flags(stage_flags)
-                .descriptor_count(1)
+                .descriptor_count(1),
         );
         self
     }

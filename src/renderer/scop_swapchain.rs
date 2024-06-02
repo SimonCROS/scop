@@ -7,7 +7,7 @@ use ash::{
     vk::{self, FormatFeatureFlags, QueueFlags},
 };
 
-use super::{device::RendererDevice, scop_image::ScopImage, window::RendererWindow};
+use super::{RendererDevice, RendererWindow, ScopImage};
 
 pub struct ScopSwapchain {
     device: Rc<RendererDevice>,

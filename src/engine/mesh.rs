@@ -11,7 +11,7 @@ use ash::vk::{
 
 use crate::{
     math::{Vector2, Vector3},
-    renderer::{device::RendererDevice, scop_buffer::ScopBuffer},
+    renderer::{RendererDevice, ScopBuffer},
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]

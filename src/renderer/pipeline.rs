@@ -10,7 +10,7 @@ use crate::{
     utils::read_shader,
 };
 
-use super::{device::RendererDevice, shader::Shader};
+use super::{RendererDevice, Shader};
 
 pub struct SimplePushConstantData {
     pub model_matrix: Matrix4,

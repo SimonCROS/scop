@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{bail, Context, Ok, Result};
 use ash::vk;
 
-use super::{device::RendererDevice, scop_buffer::ScopBuffer, scop_command_pool::ScopCommandPool};
+use super::{RendererDevice, ScopBuffer, ScopCommandPool};
 
 pub struct ScopImage {
     device: Rc<RendererDevice>,
@@ -207,6 +207,14 @@ impl ScopImage {
         };
 
         Ok(image_view)
+    }
+
+    pub fn cleanup_image_view(&self, image_view: vk::ImageView) {
+        unsafe {
+            self.device
+                .logical_device
+                .destroy_image_view(image_view, None);
+        }
     }
 
     pub fn cleanup(&mut self) {

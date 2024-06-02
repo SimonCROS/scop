@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk;
 
-use super::device::RendererDevice;
+use super::RendererDevice;
 
 pub struct ScopFramebuffer {
     device: Rc<RendererDevice>,

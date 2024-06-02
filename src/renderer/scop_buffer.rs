@@ -3,7 +3,7 @@ use std::{ffi::c_void, ptr::null_mut, rc::Rc};
 use anyhow::{Context, Ok, Result};
 use ash::{util::Align, vk};
 
-use super::{device::RendererDevice, scop_command_pool::ScopCommandPool, scop_image::ScopImage};
+use super::{RendererDevice, ScopCommandPool, ScopImage};
 
 pub struct ScopBuffer {
     device: Rc<RendererDevice>,
