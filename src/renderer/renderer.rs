@@ -17,7 +17,7 @@ use crate::engine::{camera::Camera, GameObject};
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    RendererDebug, RendererDevice, RendererPipeline, RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData
+    RendererDebug, RendererDevice, RendererPipeline, RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopGpuCameraData, ScopRenderPass, ScopSwapchain, ScopTexture2D, SimplePushConstantData
 };
 
 pub struct Renderer {
@@ -39,6 +39,7 @@ pub struct Renderer {
     pub graphic_command_pools: Vec<ScopCommandPool>,
     pub frame_count: u32,
     pub camera_buffers: Vec<ScopBuffer>,
+    pub tmp_texture1: ScopTexture2D,
 }
 
 impl Renderer {
@@ -130,6 +131,12 @@ impl Renderer {
             &camera_buffers,
         )?;
 
+        let tmp_texture1 = ScopTexture2D::from_bmp_r32g32b32_file(
+            main_device.clone(),
+            &graphic_command_pools[0],
+            "./textures/earth.bmp",
+        )?;
+
         Ok(Self {
             entry,
             instance,
@@ -145,6 +152,7 @@ impl Renderer {
             graphic_command_pools,
             frame_count: 0,
             camera_buffers,
+            tmp_texture1,
         })
     }
 

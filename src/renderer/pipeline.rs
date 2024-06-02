@@ -7,7 +7,6 @@ use ash::vk::{self, PushConstantRange, ShaderStageFlags};
 use crate::{
     engine::mesh::Vertex,
     math::{Matrix3, Matrix4},
-    utils::read_shader,
 };
 
 use super::{RendererDevice, Shader};
@@ -38,11 +37,11 @@ impl RendererPipeline {
     ) -> Result<RendererPipeline> {
         let vert = Shader::from_code_vert(
             &device.logical_device,
-            &read_shader("./shaders/default.vert.spv")?,
+            &Shader::read_spv_file("./shaders/default.vert.spv")?,
         )?;
         let frag = Shader::from_code_frag(
             &device.logical_device,
-            &read_shader("./shaders/default.frag.spv")?,
+            &Shader::read_spv_file("./shaders/default.frag.spv")?,
         )?;
 
         let entry_point = ffi::CString::new("main").unwrap();

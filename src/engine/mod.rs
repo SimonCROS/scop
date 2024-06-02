@@ -16,7 +16,7 @@ pub use transform::*;
 
 use crate::{
     math::{Up, Vector2, Vector3},
-    renderer::{Renderer, RendererWindow},
+    renderer::{Renderer, RendererWindow, ScopTexture2D},
 };
 
 use self::mesh::{Mesh, Vertex};

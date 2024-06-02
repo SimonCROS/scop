@@ -145,46 +145,6 @@ impl ScopImage {
         Ok(())
     }
 
-    pub fn create_texture_image(
-        device: &Rc<RendererDevice>,
-        command_pool: &ScopCommandPool,
-        data: &[u8],
-        width: u32,
-        height: u32,
-    ) -> Result<ScopImage> {
-        let size = (width as vk::DeviceSize) * (height as vk::DeviceSize);
-        let mut staging_buffer = ScopBuffer::new(
-            device.clone(),
-            1,
-            size,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            1,
-        )?;
-
-        staging_buffer.map(vk::WHOLE_SIZE, 0)?;
-        staging_buffer.write_to_buffer(data, 0);
-        staging_buffer.unmap();
-
-        let mut image = ScopImage::new(
-            device.clone(),
-            vk::Format::R8G8B8A8_SRGB,
-            vk::ImageTiling::OPTIMAL,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
-            width,
-            height,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        )?;
-
-        staging_buffer.copy_to_image(command_pool, &image)?;
-        image.change_layout(command_pool, vk::ImageLayout::READ_ONLY_OPTIMAL)?;
-
-        staging_buffer.cleanup();
-
-        Ok(image)
-    }
-
     pub fn create_image_view(&self, aspect_mask: vk::ImageAspectFlags) -> Result<vk::ImageView> {
         // Access all levels, all layers
         let image_subresource_range = vk::ImageSubresourceRange::builder()

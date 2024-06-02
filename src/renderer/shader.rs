@@ -1,6 +1,6 @@
-use std::ffi;
+use std::{ffi, fs::{self, File}, io::Read, mem::size_of};
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use ash::vk;
 
 pub struct Shader {
@@ -30,6 +30,26 @@ impl Shader {
 
     pub fn from_code_frag(device: &ash::Device, code: &[u32]) -> Result<Self> {
         Self::from_code(device, code, vk::ShaderStageFlags::FRAGMENT)
+    }
+
+    pub fn read_spv_file(path: &str) -> Result<Vec<u32>> {
+        let mut f = File::open(&path)?;
+        let metadata = fs::metadata(&path)?;
+
+        ensure!(
+            metadata.len() % 4 == 0,
+            "Spir-V shader code len should be a multpile of 4"
+        );
+
+        let len = metadata.len() as usize;
+
+        unsafe {
+            let mut buffer = vec![0u32; len / size_of::<u32>()];
+            let bytes: &mut [u8] = std::slice::from_raw_parts_mut(buffer.as_mut_ptr() as *mut u8, len);
+            f.read_exact(bytes)?;
+        
+            Ok(buffer)
+        }
     }
 
     pub fn shader_stage(&self, entry_point: &ffi::CString) -> vk::PipelineShaderStageCreateInfo {
