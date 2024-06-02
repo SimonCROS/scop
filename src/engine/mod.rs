@@ -14,7 +14,7 @@ pub use game_object::*;
 use matrix::traits::{One, Zero};
 pub use transform::*;
 
-use crate::{math::{Left, Up, Vector2, Vector3}, renderer::{window::RendererWindow, Renderer}};
+use crate::{math::{Forward, Left, Up, Vector2, Vector3}, renderer::{window::RendererWindow, Renderer}};
 
 use self::mesh::{Mesh, Vertex};
 
@@ -91,19 +91,13 @@ impl Engine {
             GameObject::builder(self)
                 .name("Hello World")
                 .mesh(m.clone())
-                .transform(Transform { translation: [xs[i] * 2. - 1., ys[i] * 2. - 1., 0.6].into(), scale: Vector3::one(), rotation: Vector3::zero()})
+                .transform(Transform { translation: [xs[i] * 4. - 2., ys[i] * 4. - 2., ys[(i + 20) % 40] * 5.].into(), scale: Vector3::one(), rotation: Vector3::zero()})
                 .build();
         }
-        
-        // GameObject::builder(self)
-        //         .name("Hello World")
-        //         .mesh(m.clone())
-        //         .transform(Transform { translation: Vector3::left() * 2., scale: Vector3::one(), rotation: Vector3::zero()})
-        //         .build();
 
         let mut camera = Camera::empty();
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);
-        camera.set_view_target([0.0, 0.0, -10.0].into(), Vector3::zero(), Vector3::up());
+        camera.set_view_target([0.0, 0.0, -4.0].into(), Vector3::zero(), Vector3::up());
 
         println!("{}", camera.get_projection());
 
