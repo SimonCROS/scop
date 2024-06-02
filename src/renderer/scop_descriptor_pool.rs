@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk;
 
-use super::{RendererDevice, ScopBuffer, ScopDescriptorSetLayout};
+use super::{RendererDevice, ScopBuffer, ScopDescriptorSetLayout, ScopTexture2D};
 
 pub struct ScopDescriptorPool {
     device: Rc<RendererDevice>,
@@ -23,60 +23,6 @@ impl ScopDescriptorPool {
             sizes: vec![],
             max_sets: 0,
         }
-    }
-
-    pub fn write_buffer(
-        &self,
-        binding: u32,
-        descriptor_layout: &ScopDescriptorSetLayout,
-        buffer: &ScopBuffer,
-    ) -> Result<vk::DescriptorSet> {
-        let allocate_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(self.descriptor_pool)
-            .set_layouts(&[descriptor_layout.set_layout])
-            .build();
-
-        let descriptor_set = unsafe {
-            self.device
-                .logical_device
-                .allocate_descriptor_sets(&allocate_info)?[0]
-        };
-
-        let descriptor_buffer_info = vk::DescriptorBufferInfo::builder()
-            .buffer(buffer.buffer)
-            .offset(0)
-            .range(buffer.instance_size)
-            .build();
-
-        let descriptor_type = descriptor_layout.bindings[&binding].descriptor_type;
-
-        let write_descriptor_set = vk::WriteDescriptorSet::builder()
-            .dst_binding(binding)
-            .dst_set(descriptor_set)
-            .buffer_info(&[descriptor_buffer_info])
-            .descriptor_type(descriptor_type)
-            .build();
-
-        unsafe {
-            self.device
-                .logical_device
-                .update_descriptor_sets(&[write_descriptor_set], &[])
-        }
-
-        Ok(descriptor_set)
-    }
-
-    pub fn write_buffers(
-        &self,
-        binding: u32,
-        descriptor_layout: &ScopDescriptorSetLayout,
-        buffers: &[ScopBuffer],
-    ) -> Result<Vec<vk::DescriptorSet>> {
-        let mut descriptor_sets = Vec::<vk::DescriptorSet>::with_capacity(buffers.len());
-        for buffer in buffers {
-            descriptor_sets.push(self.write_buffer(binding, descriptor_layout, buffer)?);
-        }
-        Ok(descriptor_sets)
     }
 
     pub fn cleanup(&mut self) {

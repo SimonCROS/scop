@@ -235,7 +235,6 @@ impl ScopSwapchain {
             device.clone(),
             depth_format,
             vk::ImageTiling::OPTIMAL,
-            vk::ImageLayout::UNDEFINED,
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             extent.width,
             extent.height,

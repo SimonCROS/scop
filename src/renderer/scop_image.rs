@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{bail, Context, Ok, Result};
 use ash::vk;
 
-use super::{RendererDevice, ScopBuffer, ScopCommandPool};
+use super::{RendererDevice, ScopCommandPool};
 
 pub struct ScopImage {
     device: Rc<RendererDevice>,
@@ -22,7 +22,6 @@ impl ScopImage {
         device: Rc<RendererDevice>,
         format: vk::Format,
         tiling: vk::ImageTiling,
-        initial_layout: vk::ImageLayout,
         usage: vk::ImageUsageFlags,
         width: u32,
         height: u32,
@@ -39,7 +38,6 @@ impl ScopImage {
                 .array_layers(array_layers)
                 .format(format)
                 .tiling(tiling)
-                .initial_layout(initial_layout)
                 .usage(usage)
                 .samples(vk::SampleCountFlags::TYPE_1)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE);
@@ -76,7 +74,7 @@ impl ScopImage {
             image,
             device_memory,
             format,
-            layout: initial_layout,
+            layout: vk::ImageLayout::UNDEFINED,
             width,
             height,
             mip_levels,

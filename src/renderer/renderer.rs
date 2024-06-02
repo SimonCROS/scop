@@ -17,7 +17,9 @@ use crate::engine::{camera::Camera, GameObject};
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    RendererDebug, RendererDevice, RendererPipeline, RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopGpuCameraData, ScopRenderPass, ScopSwapchain, ScopTexture2D, SimplePushConstantData
+    RendererDebug, RendererDevice, RendererPipeline, RendererWindow, ScopBuffer, ScopCommandPool,
+    ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter, ScopGpuCameraData,
+    ScopRenderPass, ScopSwapchain, ScopTexture2D, SimplePushConstantData,
 };
 
 pub struct Renderer {
@@ -83,6 +85,10 @@ impl Renderer {
                 vk::DescriptorType::UNIFORM_BUFFER,
                 swapchain.image_count as u32,
             )
+            .add_size(
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                swapchain.image_count as u32,
+            )
             .max_sets(swapchain.image_count as u32)
             .build()?;
 
@@ -91,6 +97,11 @@ impl Renderer {
                 0,
                 vk::DescriptorType::UNIFORM_BUFFER,
                 vk::ShaderStageFlags::VERTEX,
+            )
+            .add_binding(
+                1,
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                vk::ShaderStageFlags::FRAGMENT,
             )
             .build()?;
 
@@ -125,17 +136,24 @@ impl Renderer {
             )?);
         }
 
-        let global_descriptor_sets = global_descriptor_pool.write_buffers(
-            0,
-            &global_descriptor_set_layout,
-            &camera_buffers,
-        )?;
-
-        let tmp_texture1 = ScopTexture2D::from_bmp_r32g32b32_file(
+        let tmp_texture1 = ScopTexture2D::from_bmp_r8g8b8a8_file(
             main_device.clone(),
             &graphic_command_pools[0],
             "./textures/earth.bmp",
         )?;
+
+        let mut global_descriptor_sets =
+            Vec::<vk::DescriptorSet>::with_capacity(swapchain.image_count);
+        for i in 0..swapchain.image_count {
+            let mut writer = ScopDescriptorWriter::new(
+                &main_device,
+                &global_descriptor_pool,
+                &global_descriptor_set_layout,
+            )?;
+            writer.add_buffer(0, &camera_buffers[i]);
+            writer.add_texture2d(1, &tmp_texture1);
+            global_descriptor_sets.push(writer.write());
+        }
 
         Ok(Self {
             entry,

@@ -149,7 +149,8 @@ impl ScopBuffer {
                     .height(dst_image.height)
                     .depth(1),
             )
-            .image_subresource(*image_subresource);
+            .image_subresource(*image_subresource)
+            .build();
 
         unsafe {
             self.device.logical_device.cmd_copy_buffer_to_image(
@@ -157,7 +158,7 @@ impl ScopBuffer {
                 self.buffer,
                 dst_image.image,
                 dst_image.layout,
-                &[*region],
+                &[region],
             )
         };
 

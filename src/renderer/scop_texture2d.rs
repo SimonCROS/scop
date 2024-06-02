@@ -1,19 +1,20 @@
-use core::slice;
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{Read, Seek, SeekFrom},
-    mem::{size_of, MaybeUninit},
+    mem::size_of,
     rc::Rc,
 };
 
-use anyhow::{bail, ensure, Context, Ok, Result};
+use anyhow::{ensure, Ok, Result};
 use ash::vk;
 
-use super::{scop_command_pool, RendererDevice, ScopBuffer, ScopCommandPool, ScopImage};
+use super::{RendererDevice, ScopBuffer, ScopCommandPool, ScopImage};
 
 pub struct ScopTexture2D {
+    device: Rc<RendererDevice>,
     pub image: ScopImage,
     pub image_view: vk::ImageView,
+    pub sampler: vk::Sampler,
 }
 
 #[derive(Default, Debug)]
@@ -49,8 +50,10 @@ impl ScopTexture2D {
         data: &[u8],
         width: u32,
         height: u32,
+        bits_per_pixel: u16,
     ) -> Result<Self> {
-        let size = (width as vk::DeviceSize) * (height as vk::DeviceSize);
+        ensure!(bits_per_pixel % 8 == 0, "bits_per_pixel should be a multiple of 8");
+        let size = width as vk::DeviceSize * height as vk::DeviceSize * (bits_per_pixel / 8) as vk::DeviceSize;
         let mut staging_buffer = ScopBuffer::new(
             device.clone(),
             1,
@@ -65,16 +68,16 @@ impl ScopTexture2D {
         staging_buffer.unmap();
 
         let mut image = ScopImage::new(
-            device,
-            vk::Format::R8G8B8A8_SRGB,
+            device.clone(),
+            vk::Format::R8G8B8A8_SNORM,
             vk::ImageTiling::OPTIMAL,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             width,
             height,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
 
+        image.change_layout(command_pool, vk::ImageLayout::TRANSFER_DST_OPTIMAL)?;
         staging_buffer.copy_to_image(command_pool, &image)?;
         image.change_layout(command_pool, vk::ImageLayout::READ_ONLY_OPTIMAL)?;
 
@@ -82,10 +85,30 @@ impl ScopTexture2D {
 
         let image_view = image.create_image_view(vk::ImageAspectFlags::COLOR)?;
 
-        Ok(Self { image, image_view })
+        let sampler_create_info = vk::SamplerCreateInfo::builder()
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR);
+
+        let sampler = unsafe {
+            device
+                .logical_device
+                .create_sampler(&sampler_create_info, None)?
+        };
+
+        Ok(Self {
+            device,
+            image,
+            image_view,
+            sampler,
+        })
     }
 
-    pub fn from_bmp_r32g32b32_file(
+    pub fn from_bmp_r8g8b8a8_file(
         device: Rc<RendererDevice>,
         command_pool: &ScopCommandPool,
         path: &'static str,
@@ -107,12 +130,9 @@ impl ScopTexture2D {
             file.read_exact(std::slice::from_raw_parts_mut(p, dib_header_size))?;
         }
 
-        dbg!(&bmp_header);
-        dbg!(&dib_header);
-
         ensure!(
-            dib_header.bits_per_pixel == 24,
-            "BMP bits per pixel should be 24"
+            dib_header.bits_per_pixel == 32,
+            "BMP bits per pixel should be 32"
         );
         ensure!(dib_header.width > 0, "BMP width be > 0");
         ensure!(dib_header.height > 0, "BMP height be > 0");
@@ -131,10 +151,24 @@ impl ScopTexture2D {
             &bytes,
             dib_header.width as u32,
             dib_header.height as u32,
+            dib_header.bits_per_pixel,
         )
     }
 
+    pub fn descriptor_info(&self) -> vk::DescriptorImageInfo {
+        vk::DescriptorImageInfo::builder()
+            .image_layout(self.image.layout)
+            .image_view(self.image_view)
+            .sampler(self.sampler)
+            .build()
+    }
+
     pub fn cleanup(&mut self) {
+        unsafe {
+            self.device
+                .logical_device
+                .destroy_sampler(self.sampler, None)
+        };
         self.image.cleanup_image_view(self.image_view);
         self.image.cleanup();
     }
