@@ -31,26 +31,26 @@ impl Transform {
         Matrix4::from([
             [
                 self.scale.x() * (c1 * c3 + s1 * s2 * s3),
-                self.scale.y() * (c3 * s1 * s2 - c1 * s3),
-                self.scale.z() * (c2 * s1),
-                self.translation.x(),
-            ],
-            [
                 self.scale.x() * (c2 * s3),
-                self.scale.y() * (c2 * c3),
-                self.scale.z() * (-s2),
-                self.translation.y(),
-            ],
-            [
                 self.scale.x() * (c1 * s2 * s3 - c3 * s1),
-                self.scale.y() * (c1 * c3 * s2 + s1 * s3),
-                self.scale.z() * (c1 * c2),
-                self.translation.z(),
+                0.0f32,
             ],
             [
+                self.scale.y() * (c3 * s1 * s2 - c1 * s3),
+                self.scale.y() * (c2 * c3),
+                self.scale.y() * (c1 * c3 * s2 + s1 * s3),
                 0.0f32,
+            ],
+            [
+                self.scale.z() * (c2 * s1),
+                self.scale.z() * (-s2),
+                self.scale.z() * (c1 * c2),
                 0.0f32,
-                0.0f32,
+            ],
+            [
+                self.translation.x(),
+                self.translation.y(),
+                self.translation.z(),
                 1.0f32,
             ],
         ])
