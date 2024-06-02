@@ -99,8 +99,6 @@ impl Engine {
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);
         camera.set_view_target([0.0, 0.0, -4.0].into(), Vector3::zero(), Vector3::up());
 
-        println!("{}", camera.get_projection());
-
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {
             self.renderer.handle_draw_request(&camera, &self.game_objects)?;
