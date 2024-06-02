@@ -123,18 +123,11 @@ impl ScopSwapchain {
     }
 
     pub fn next_image(&mut self) -> Result<(u32, vk::Semaphore, vk::Semaphore, vk::Fence)> {
+        self.current_image = (self.current_image + 1) % self.image_count;
+
         let image_available = &self.image_available[self.current_image];
         let rendering_finished = &self.rendering_finished[self.current_image];
         let may_begin_drawing = &self.may_begin_drawing[self.current_image];
-
-        let (image_index, _) = unsafe {
-            self.swapchain_loader.acquire_next_image(
-                self.swapchain,
-                std::u64::MAX,
-                *image_available,
-                vk::Fence::null(),
-            )?
-        };
 
         unsafe {
             self.device.logical_device.wait_for_fences(
@@ -147,7 +140,14 @@ impl ScopSwapchain {
                 .reset_fences(slice::from_ref(may_begin_drawing))?;
         }
 
-        self.current_image = (self.current_image + 1) % self.image_count;
+        let (image_index, _) = unsafe {
+            self.swapchain_loader.acquire_next_image(
+                self.swapchain,
+                std::u64::MAX,
+                *image_available,
+                vk::Fence::null(),
+            )?
+        };
 
         Ok((
             image_index,
@@ -157,7 +157,7 @@ impl ScopSwapchain {
         ))
     }
 
-    pub fn present_image(
+    pub fn queue_present(
         &self,
         queue: vk::Queue,
         image_index: u32,

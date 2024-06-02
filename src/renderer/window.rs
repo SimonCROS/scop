@@ -32,8 +32,6 @@ impl RendererWindow {
         entry: &ash::Entry,
         instance: &ash::Instance,
     ) -> Result<Self> {
-        dbg!("New window");
-
         let surface = unsafe {
             ash_window::create_surface(
                 entry,

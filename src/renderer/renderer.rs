@@ -233,7 +233,7 @@ impl Renderer {
             &[PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
             may_begin_drawing,
         )?;
-        self.swapchain.present_image(
+        self.swapchain.queue_present(
             command_pool.get_queue_family().queues[0],
             image_index,
             &[rendering_finished],
