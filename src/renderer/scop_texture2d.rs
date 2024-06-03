@@ -17,30 +17,33 @@ pub struct ScopTexture2D {
     pub sampler: vk::Sampler,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 #[repr(packed)]
-struct BmpHeader {
-    file_type: u16,
-    file_size: u32,
-    reserved1: u16,
-    reserved2: u16,
-    offset_data: u32,
+struct TgaColorMapSpecifications {
+    first_entry_index: u16,
+    length: u16,
+    entry_size: u8,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+#[repr(packed)]
+struct TgaImageSpecifications {
+    x_origin: u16,
+    y_origin: u16,
+    width: u16,
+    height: u16,
+    bits_per_pixel: u8,
+    image_descriptor: u8,
 }
 
 #[derive(Default, Debug)]
 #[repr(packed)]
-struct DibHeader {
-    header_size: u32,
-    width: u32,
-    height: u32,
-    planes: u16,
-    bits_per_pixel: u16,
-    compression_method: u32,
-    bitmap_size: u32,
-    horizontal_resolution: u32,
-    vertical_resolution: u32,
-    color_palette_size: u32,
-    important_colors_used: u32,
+struct TgaHeader {
+    id_length: u8,
+    color_map_type: u8,
+    image_type: u8,
+    color_map: TgaColorMapSpecifications,
+    image: TgaImageSpecifications,
 }
 
 impl ScopTexture2D {
@@ -50,6 +53,7 @@ impl ScopTexture2D {
         data: &[u8],
         width: u32,
         height: u32,
+        image_format: vk::Format,
         bits_per_pixel: u16,
     ) -> Result<Self> {
         ensure!(
@@ -76,7 +80,7 @@ impl ScopTexture2D {
 
         let mut image = ScopImage::new(
             device.clone(),
-            vk::Format::R8G8B8A8_UNORM,
+            image_format,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             width,
@@ -115,40 +119,59 @@ impl ScopTexture2D {
         })
     }
 
-    pub fn from_bmp_r8g8b8a8_file(
+    pub fn from_tga_r8g8b8a8_file(
         device: Rc<RendererDevice>,
         command_pool: &ScopCommandPool,
         path: &'static str,
     ) -> Result<ScopTexture2D> {
         let mut file = File::open(path)?;
-        let mut bmp_header = BmpHeader::default();
-        let mut dib_header = DibHeader::default();
-        let bmp_header_size = size_of::<BmpHeader>();
-        let dib_header_size = size_of::<DibHeader>();
+        let mut tga_header = TgaHeader::default();
+        let tga_header_size = size_of::<TgaHeader>();
 
         unsafe {
-            let p: *mut BmpHeader = &mut bmp_header;
+            let p: *mut TgaHeader = &mut tga_header;
             let p: *mut u8 = p as *mut u8;
-            file.read_exact(std::slice::from_raw_parts_mut(p, bmp_header_size))?;
-        }
-        unsafe {
-            let p: *mut DibHeader = &mut dib_header;
-            let p: *mut u8 = p as *mut u8;
-            file.read_exact(std::slice::from_raw_parts_mut(p, dib_header_size))?;
+            file.read_exact(std::slice::from_raw_parts_mut(p, tga_header_size))?;
         }
 
         ensure!(
-            dib_header.bits_per_pixel == 32,
-            "BMP bits per pixel should be 32"
+            tga_header.color_map_type == 0,
+            "The TGA file must not contain a color map"
         );
-        ensure!(dib_header.width > 0, "BMP width be > 0");
-        ensure!(dib_header.height > 0, "BMP height be > 0");
+        ensure!(
+            tga_header.image_type == 2,
+            "The TGA file must not contain an uncompressed true-color image"
+        );
+        ensure!(
+            tga_header.color_map.first_entry_index
+                | tga_header.color_map.length
+                | tga_header.color_map.entry_size as u16
+                == 0,
+            "Invalid TGA file"
+        );
+        ensure!(
+            tga_header.image.x_origin | tga_header.image.y_origin == 0,
+            "The TGA file image origin should be at [0,0] from the bottom left"
+        );
+        ensure!(
+            tga_header.image.width > 0 && tga_header.image.height > 0,
+            "Invalid TGA file"
+        );
+        ensure!(
+            tga_header.image.bits_per_pixel == 32,
+            "The TGA file must contain 32 bits per pixel"
+        );
+        ensure!(
+            tga_header.image.image_descriptor == 0b00001000,
+            "The TGA file must contain 8 bits for alpha, and be in bottom-to-top, left-to-right order"
+        );
 
-        file.seek(SeekFrom::Start(bmp_header.offset_data as u64))?;
+        let bytes_per_pixel = (tga_header.image.bits_per_pixel / 8) as usize;
 
-        let content_len = dib_header.width as usize
-            * dib_header.height as usize
-            * (dib_header.bits_per_pixel / 8) as usize;
+        let content_len = tga_header.image.width as usize
+            * tga_header.image.height as usize
+            * bytes_per_pixel;
+
         let mut bytes = vec![0u8; content_len];
         file.read_exact(&mut bytes)?;
 
@@ -156,9 +179,10 @@ impl ScopTexture2D {
             device,
             command_pool,
             &bytes,
-            dib_header.width as u32,
-            dib_header.height as u32,
-            dib_header.bits_per_pixel,
+            tga_header.image.width as u32,
+            tga_header.image.height as u32,
+            vk::Format::B8G8R8A8_UNORM,
+            tga_header.image.bits_per_pixel as u16,
         )
     }
 

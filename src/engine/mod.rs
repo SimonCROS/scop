@@ -108,25 +108,25 @@ impl Engine {
 
         let vertices = vec![
             Vertex {
-                position: [-2.0, 1.0, 0.0].into(),
+                position: [-1.0, 1.0, 0.0].into(),
                 color: [0.0, 1.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
-                position: [2.0, 1.0, 0.0].into(),
+                position: [1.0, 1.0, 0.0].into(),
                 color: [1.0, 1.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
-                position: [2.0, -1.0, 0.0].into(),
+                position: [1.0, -1.0, 0.0].into(),
                 color: [1.0, 0.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
             },
             Vertex {
-                position: [-2.0, -1.0, 0.0].into(),
+                position: [-1.0, -1.0, 0.0].into(),
                 color: [0.0, 0.0, 0.0].into(),
                 normal: Vector3::up(),
                 uv: Vector2::zero(),
@@ -148,7 +148,7 @@ impl Engine {
             .transform(Transform {
                 translation: Vector3::zero(),
                 rotation: Vector3::zero(),
-                scale: Vector3::one(),
+                scale: [2.0, 1.0, 1.0].into(),
             })
             .build();
 
@@ -160,14 +160,14 @@ impl Engine {
         RendererWindow::run(event_loop, || {
             self.renderer
                 .handle_draw_request(&camera, &self.game_objects)?;
-            // let yaw =
-            //     (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
-            // let roll =
-            //     (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
-            // // let roll = 0f32;
-            // self.game_objects.values_mut().for_each(|e| {
-            //     e.borrow_mut().transform.rotation = [0., yaw, roll].into();
-            // });
+            let yaw =
+                (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
+            let roll =
+                (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
+            // let roll = 0f32;
+            self.game_objects.values_mut().for_each(|e| {
+                e.borrow_mut().transform.rotation = [0., yaw, roll].into();
+            });
             Ok(())
         })?;
 

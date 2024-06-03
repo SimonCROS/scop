@@ -136,10 +136,10 @@ impl Renderer {
             )?);
         }
 
-        let tmp_texture1 = ScopTexture2D::from_bmp_r8g8b8a8_file(
+        let tmp_texture1 = ScopTexture2D::from_tga_r8g8b8a8_file(
             main_device.clone(),
             &graphic_command_pools[0],
-            "./textures/earth.bmp",
+            "./textures/earth.tga",
         )?;
 
         let mut global_descriptor_sets =
