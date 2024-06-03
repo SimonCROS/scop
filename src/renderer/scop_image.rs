@@ -112,6 +112,14 @@ impl ScopImage {
                             vk::PipelineStageFlags::TRANSFER,
                             vk::PipelineStageFlags::FRAGMENT_SHADER,
                         )
+                    },
+                    (vk::ImageLayout::TRANSFER_DST_OPTIMAL, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL) => {
+                        (
+                            vk::AccessFlags::TRANSFER_WRITE,
+                            vk::AccessFlags::SHADER_READ,
+                            vk::PipelineStageFlags::TRANSFER,
+                            vk::PipelineStageFlags::FRAGMENT_SHADER,
+                        )
                     }
                     _ => bail!("Image transition unsupported"),
                 };

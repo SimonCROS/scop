@@ -52,12 +52,19 @@ impl ScopTexture2D {
         height: u32,
         bits_per_pixel: u16,
     ) -> Result<Self> {
-        ensure!(bits_per_pixel % 8 == 0, "bits_per_pixel should be a multiple of 8");
-        let size = width as vk::DeviceSize * height as vk::DeviceSize * (bits_per_pixel / 8) as vk::DeviceSize;
+        ensure!(
+            bits_per_pixel % 8 == 0,
+            "bits_per_pixel should be a multiple of 8"
+        );
+
+        let size = width as usize * height as usize * (bits_per_pixel / 8) as usize;
+
+        ensure!(data.len() == size as usize, "data is not the write size");
+
         let mut staging_buffer = ScopBuffer::new(
             device.clone(),
-            1,
             size,
+            1,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             1,
@@ -69,7 +76,7 @@ impl ScopTexture2D {
 
         let mut image = ScopImage::new(
             device.clone(),
-            vk::Format::R8G8B8A8_SNORM,
+            vk::Format::R8G8B8A8_UNORM,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             width,
@@ -79,7 +86,7 @@ impl ScopTexture2D {
 
         image.change_layout(command_pool, vk::ImageLayout::TRANSFER_DST_OPTIMAL)?;
         staging_buffer.copy_to_image(command_pool, &image)?;
-        image.change_layout(command_pool, vk::ImageLayout::READ_ONLY_OPTIMAL)?;
+        image.change_layout(command_pool, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)?;
 
         staging_buffer.cleanup();
 
@@ -141,8 +148,8 @@ impl ScopTexture2D {
 
         let content_len = dib_header.width as usize
             * dib_header.height as usize
-            * dib_header.bits_per_pixel as usize;
-        let mut bytes = Vec::<u8>::with_capacity(content_len);
+            * (dib_header.bits_per_pixel / 8) as usize;
+        let mut bytes = vec![0u8; content_len];
         file.read_exact(&mut bytes)?;
 
         ScopTexture2D::new(

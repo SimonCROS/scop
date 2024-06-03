@@ -10,7 +10,7 @@ pub struct ScopBuffer {
     mapped: *mut c_void,
     pub buffer: vk::Buffer,
     device_memory: vk::DeviceMemory,
-    buffer_size: vk::DeviceSize,
+    pub buffer_size: vk::DeviceSize,
     pub instance_count: usize,
     pub instance_size: vk::DeviceSize,
     alignment_size: vk::DeviceSize,
@@ -192,11 +192,7 @@ impl ScopBuffer {
         instance_size: vk::DeviceSize,
         min_offset_alignment: vk::DeviceSize,
     ) -> vk::DeviceSize {
-        if min_offset_alignment > 0 {
-            (instance_size + min_offset_alignment - 1) & !(min_offset_alignment - 1)
-        } else {
-            instance_size
-        }
+        (instance_size + (min_offset_alignment - 1)) & !(min_offset_alignment - 1)
     }
 
     unsafe fn create_buffer(
