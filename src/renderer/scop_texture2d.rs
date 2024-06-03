@@ -168,9 +168,8 @@ impl ScopTexture2D {
 
         let bytes_per_pixel = (tga_header.image.bits_per_pixel / 8) as usize;
 
-        let content_len = tga_header.image.width as usize
-            * tga_header.image.height as usize
-            * bytes_per_pixel;
+        let content_len =
+            tga_header.image.width as usize * tga_header.image.height as usize * bytes_per_pixel;
 
         let mut bytes = vec![0u8; content_len];
         file.read_exact(&mut bytes)?;
