@@ -10,14 +10,6 @@ pub struct Transform {
 }
 
 impl Transform {
-    pub fn new() -> Transform {
-        Transform {
-            translation: Vector3::zero(),
-            scale: Vector3::one(),
-            rotation: Vector3::zero(),
-        }
-    }
-
     // Matrix corrsponds to Translate * Ry * Rx * Rz * Scale
     // Rotations correspond to Tait-bryan angles of Y(1), X(2), Z(3)
     // https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
@@ -86,5 +78,15 @@ impl Transform {
                 inv_scale.z() * (c1 * c2),
             ],
         ]);
+    }
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Transform {
+            translation: Vector3::zero(),
+            scale: Vector3::one(),
+            rotation: Vector3::zero(),
+        }
     }
 }

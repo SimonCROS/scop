@@ -48,7 +48,7 @@ impl<'a> GameObjectBuilder<'a> {
     pub fn build(self) -> Rc<RefCell<GameObject>> {
         self.engine.register(GameObject {
             name: self.name.map(|s| s.to_string()),
-            transform: self.transform.unwrap_or(Transform::new()),
+            transform: self.transform.unwrap_or(Transform::default()),
             components: self.components,
             mesh: self.mesh,
         })

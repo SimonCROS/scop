@@ -14,7 +14,7 @@ use crate::{
     renderer::{RendererDevice, ScopBuffer},
 };
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Vertex {
     pub position: Vector3,
     pub color: Vector3,
