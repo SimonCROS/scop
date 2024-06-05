@@ -2,6 +2,7 @@
 
 mod engine;
 mod math;
+mod parsing;
 mod renderer;
 mod utils;
 

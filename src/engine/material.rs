@@ -8,7 +8,7 @@ enum MaterialPass {
     Other,
 }
 
-struct Material {
+pub struct Material {
     pipeline: RendererPipeline,
     material_set: DescriptorSet,
     pass_type: MaterialPass,

@@ -2,8 +2,9 @@ pub mod camera;
 mod components;
 mod game_object;
 pub mod material;
+mod material_bank;
+mod material_loader;
 pub mod mesh;
-mod obj;
 mod transform;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -12,16 +13,14 @@ use anyhow::Result;
 use camera::Camera;
 pub use components::*;
 pub use game_object::*;
-use matrix::traits::{One, Zero};
-use obj::read_obj_file;
+use matrix::traits::Zero;
 pub use transform::*;
 
 use crate::{
-    math::{Up, Vector2, Vector3},
+    math::{Up, Vector3},
+    parsing::read_obj_file,
     renderer::{Renderer, RendererWindow},
 };
-
-use self::mesh::{Mesh, Vertex};
 
 pub type GameObjectId = u32;
 

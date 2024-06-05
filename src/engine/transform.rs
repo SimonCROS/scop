@@ -83,7 +83,7 @@ impl Transform {
 
 impl Default for Transform {
     fn default() -> Self {
-        Transform {
+        Self {
             translation: Vector3::zero(),
             scale: Vector3::one(),
             rotation: Vector3::zero(),
