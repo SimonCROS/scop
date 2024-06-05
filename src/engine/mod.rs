@@ -1,15 +1,14 @@
 pub mod camera;
 mod components;
 mod game_object;
-pub mod material;
 mod material_bank;
-mod material_loader;
 pub mod mesh;
 mod transform;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use anyhow::Result;
+use ash::vk;
 use camera::Camera;
 pub use components::*;
 pub use game_object::*;
@@ -19,7 +18,7 @@ pub use transform::*;
 use crate::{
     math::{Up, Vector3},
     parsing::read_obj_file,
-    renderer::{Renderer, RendererWindow},
+    renderer::{Material, Renderer, RendererWindow, ScopDescriptorSetLayout, ScopTexture2D},
 };
 
 pub type GameObjectId = u32;
@@ -49,14 +48,35 @@ impl Engine {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let m = Rc::new(read_obj_file(
+        let mesh = Rc::new(read_obj_file(
             self.renderer.main_device.clone(),
             "./resources/teapot2.obj",
         )?);
 
+        let texture = ScopTexture2D::from_tga_r8g8b8a8_file(
+            self.renderer.main_device.clone(),
+            &self.renderer.graphic_command_pools[0],
+            "./textures/earth.tga",
+        )?;
+
+        let set_layouts = vec![ScopDescriptorSetLayout::builder(&self.renderer.main_device)
+            .add_binding(
+                0,
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                vk::ShaderStageFlags::FRAGMENT,
+            )
+            .build()?];
+
+        let material = Rc::new(Material::new(&self.renderer, set_layouts)?);
+        material
+            .get_writer_for_all(0)
+            .set_texture2d(1, &texture)
+            .write();
+
         GameObject::builder(self)
             .name("Hello World")
-            .mesh(m.clone())
+            .mesh(mesh.clone())
+            .material(material)
             .build();
 
         let mut camera = Camera::empty();

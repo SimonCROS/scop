@@ -1,5 +1,6 @@
 mod debug;
 mod device;
+mod material;
 mod pipeline;
 mod renderer;
 mod scop_buffer;
@@ -17,7 +18,10 @@ mod window;
 
 pub use debug::RendererDebug;
 pub use device::{QueueFamily, QueueFamilyId, RendererDevice};
-pub use pipeline::{RendererPipeline, ScopGpuCameraData, SimplePushConstantData};
+pub use material::Material;
+pub use pipeline::{
+    RendererPipeline, ScopGpuCameraData, ScopPipelineBuilder, SimplePushConstantData,
+};
 pub use renderer::Renderer;
 pub use scop_buffer::ScopBuffer;
 pub use scop_command_pool::ScopCommandPool;

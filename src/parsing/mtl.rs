@@ -1,10 +1,8 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::rc::Rc;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{ensure, Result};
 
-use crate::engine::mesh::{Mesh, Vertex};
+use crate::engine::mesh::Mesh;
 use crate::renderer::RendererDevice;
 
 fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&'a str>> {

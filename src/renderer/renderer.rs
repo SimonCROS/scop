@@ -17,9 +17,10 @@ use crate::engine::{camera::Camera, GameObject};
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    RendererDebug, RendererDevice, RendererPipeline, RendererWindow, ScopBuffer, ScopCommandPool,
-    ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter, ScopGpuCameraData,
-    ScopRenderPass, ScopSwapchain, ScopTexture2D, SimplePushConstantData,
+    Material, RendererDebug, RendererDevice,
+    RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout,
+    ScopDescriptorWriter, ScopGpuCameraData, ScopRenderPass, ScopSwapchain,
+    SimplePushConstantData,
 };
 
 pub struct Renderer {
@@ -37,11 +38,9 @@ pub struct Renderer {
     pub global_descriptor_pool: ScopDescriptorPool,
     pub global_descriptor_set_layout: ScopDescriptorSetLayout,
     pub global_descriptor_sets: Vec<vk::DescriptorSet>,
-    pub graphics_pipeline: RendererPipeline,
     pub graphic_command_pools: Vec<ScopCommandPool>,
-    pub frame_count: u32,
     pub camera_buffers: Vec<ScopBuffer>,
-    pub tmp_texture1: ScopTexture2D,
+    pub frame_count: u32,
 }
 
 impl Renderer {
@@ -89,7 +88,7 @@ impl Renderer {
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 swapchain.image_count as u32,
             )
-            .max_sets(swapchain.image_count as u32)
+            .max_sets((swapchain.image_count * 2) as u32)
             .build()?;
 
         let global_descriptor_set_layout = ScopDescriptorSetLayout::builder(&main_device)
@@ -98,19 +97,7 @@ impl Renderer {
                 vk::DescriptorType::UNIFORM_BUFFER,
                 vk::ShaderStageFlags::VERTEX,
             )
-            .add_binding(
-                1,
-                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                vk::ShaderStageFlags::FRAGMENT,
-            )
             .build()?;
-
-        let graphics_pipeline = RendererPipeline::new(
-            main_device.clone(),
-            swapchain.extent,
-            defaut_render_pass.render_pass,
-            &[global_descriptor_set_layout.set_layout],
-        )?;
 
         let mut graphic_command_pools =
             Vec::<ScopCommandPool>::with_capacity(swapchain.image_count);
@@ -136,23 +123,26 @@ impl Renderer {
             )?);
         }
 
-        let tmp_texture1 = ScopTexture2D::from_tga_r8g8b8a8_file(
-            main_device.clone(),
-            &graphic_command_pools[0],
-            "./textures/earth.tga",
-        )?;
-
         let mut global_descriptor_sets =
             Vec::<vk::DescriptorSet>::with_capacity(swapchain.image_count);
         for i in 0..swapchain.image_count {
-            let mut writer = ScopDescriptorWriter::new(
-                &main_device,
-                &global_descriptor_pool,
-                &global_descriptor_set_layout,
-            )?;
-            writer.add_buffer(0, &camera_buffers[i]);
-            writer.add_texture2d(1, &tmp_texture1);
-            global_descriptor_sets.push(writer.write());
+            let allocate_info = vk::DescriptorSetAllocateInfo::builder()
+                .descriptor_pool(global_descriptor_pool.descriptor_pool)
+                .set_layouts(&[global_descriptor_set_layout.set_layout])
+                .build();
+
+            let set = unsafe {
+                main_device
+                    .logical_device
+                    .allocate_descriptor_sets(&allocate_info)?[0]
+            };
+
+            ScopDescriptorWriter::new(&main_device, &global_descriptor_set_layout)
+                .descriptors(&[set])
+                .set_buffer(0, &camera_buffers[i])
+                .write();
+
+            global_descriptor_sets.push(set);
         }
 
         Ok(Self {
@@ -166,11 +156,9 @@ impl Renderer {
             global_descriptor_pool,
             global_descriptor_set_layout,
             global_descriptor_sets,
-            graphics_pipeline,
             graphic_command_pools,
-            frame_count: 0,
             camera_buffers,
-            tmp_texture1,
+            frame_count: 0,
         })
     }
 
@@ -214,15 +202,8 @@ impl Renderer {
 
         self.main_device.begin_command_buffer(command_buffer)?;
         self.defaut_render_pass.begin(command_buffer, image_index);
-        self.graphics_pipeline
-            .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
-        self.graphics_pipeline.bind_descriptor_sets(
-            command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            &[self.global_descriptor_sets[image_index as usize]],
-        );
 
-        self.draw_game_objects(game_objects, command_buffer);
+        self.draw_game_objects(game_objects, command_buffer, image_index);
 
         self.defaut_render_pass.end(command_buffer);
         self.main_device.end_command_buffer(command_buffer)?;
@@ -250,11 +231,32 @@ impl Renderer {
         &self,
         game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
         command_buffer: vk::CommandBuffer,
+        image_index: u32,
     ) {
+        let mut previous_material_ptr: *const Material = std::ptr::null();
+
         for go in game_objects.values() {
             let game_object = go.borrow();
 
             if let Some(mesh) = &game_object.mesh {
+                let material = game_object.material.as_ref().unwrap();
+
+                if previous_material_ptr != Rc::as_ptr(&material) {
+                    previous_material_ptr = Rc::as_ptr(&material);
+
+                    material
+                        .pipeline
+                        .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
+                    material.pipeline.bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        &[
+                            self.global_descriptor_sets[image_index as usize],
+                            material.material_sets[image_index as usize],
+                        ],
+                    );
+                }
+
                 let push = SimplePushConstantData {
                     model_matrix: game_object.transform.mat(),
                     normal_matrix: game_object.transform.normal_matrix(),
@@ -263,7 +265,7 @@ impl Renderer {
                 unsafe {
                     self.main_device.logical_device.cmd_push_constants(
                         command_buffer,
-                        self.graphics_pipeline.pipeline_layout,
+                        material.pipeline.pipeline_layout,
                         ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
                         0,
                         crate::utils::any_as_u8_slice(&push),
@@ -310,7 +312,6 @@ impl Drop for Renderer {
         self.graphic_command_pools
             .iter_mut()
             .for_each(ScopCommandPool::cleanup);
-        self.graphics_pipeline.cleanup();
         self.global_descriptor_pool.cleanup();
         self.global_descriptor_set_layout.cleanup(&self.main_device);
         self.swapchain.cleanup();

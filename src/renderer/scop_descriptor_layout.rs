@@ -5,6 +5,7 @@ use ash::vk;
 
 use super::RendererDevice;
 
+#[derive(Clone)]
 pub struct ScopDescriptorSetLayout {
     pub set_layout: vk::DescriptorSetLayout,
     pub bindings: HashMap<u32, vk::DescriptorSetLayoutBinding>,

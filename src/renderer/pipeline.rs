@@ -1,7 +1,7 @@
 use core::slice;
 use std::{ffi, mem, rc::Rc};
 
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use ash::vk::{self, PushConstantRange, ShaderStageFlags};
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
     math::{Matrix3, Matrix4},
 };
 
-use super::{RendererDevice, Shader};
+use super::{RendererDevice, ScopDescriptorSetLayout, ScopRenderPass, Shader};
 
 pub struct SimplePushConstantData {
     pub model_matrix: Matrix4,
@@ -23,115 +23,45 @@ pub struct ScopGpuCameraData {
 }
 
 pub struct RendererPipeline {
-    device: Rc<RendererDevice>,
+    pub device: Rc<RendererDevice>,
     pub pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
 }
 
+pub struct ScopPipelineBuilder<'a> {
+    device: Rc<RendererDevice>,
+    render_pass: Option<&'a ScopRenderPass>,
+    vert_shader: Option<Shader>,
+    frag_shader: Option<Shader>,
+    set_layouts: &'a [vk::DescriptorSetLayout],
+    extent: Option<vk::Extent2D>,
+}
+
 impl RendererPipeline {
+    pub fn builder<'a>(device: Rc<RendererDevice>) -> ScopPipelineBuilder<'a> {
+        ScopPipelineBuilder {
+            device,
+            render_pass: None,
+            vert_shader: None,
+            frag_shader: None,
+            extent: None,
+            set_layouts: &[],
+        }
+    }
+
     pub fn new(
         device: Rc<RendererDevice>,
         extent: vk::Extent2D,
         render_pass: vk::RenderPass,
         set_layouts: &[vk::DescriptorSetLayout],
-    ) -> Result<RendererPipeline> {
-        let vert = Shader::from_code_vert(
-            &device.logical_device,
-            &Shader::read_spv_file("./shaders/default.vert.spv")?,
-        )?;
-        let frag = Shader::from_code_frag(
-            &device.logical_device,
-            &Shader::read_spv_file("./shaders/default.frag.spv")?,
-        )?;
-
-        let entry_point = ffi::CString::new("main").unwrap();
-
-        let shader_stages = [
-            vert.shader_stage(&entry_point),
-            frag.shader_stage(&entry_point),
-        ];
-
-        let (pipeline_layout, pipeline) = {
-            let vertex_input_attribute_descriptions =
-                Vertex::get_vertex_input_attribute_descriptions();
-            let vertex_input_binding_descriptions = Vertex::get_vertex_input_binding_descriptions();
-            let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
-                .vertex_attribute_descriptions(vertex_input_attribute_descriptions.as_slice())
-                .vertex_binding_descriptions(vertex_input_binding_descriptions.as_slice());
-
-            Self::create_graphics_pipeline(
-                &device.logical_device,
-                render_pass,
-                extent,
-                vertex_input_info,
-                &shader_stages,
-                set_layouts,
-            )?
-        };
-
-        unsafe {
-            vert.cleanup(&device.logical_device);
-            frag.cleanup(&device.logical_device);
-        }
-
-        Ok(RendererPipeline {
-            device,
-            pipeline,
-            pipeline_layout,
-        })
-    }
-
-    pub fn bind(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        pipeline_bind_point: vk::PipelineBindPoint,
-    ) {
-        unsafe {
-            self.device.logical_device.cmd_bind_pipeline(
-                command_buffer,
-                pipeline_bind_point,
-                self.pipeline,
-            );
-        }
-    }
-
-    pub fn bind_descriptor_sets(
-        &self,
-        command_buffer: vk::CommandBuffer,
-        pipeline_bind_point: vk::PipelineBindPoint,
-        descriptor_sets: &[vk::DescriptorSet],
-    ) {
-        unsafe {
-            self.device.logical_device.cmd_bind_descriptor_sets(
-                command_buffer,
-                pipeline_bind_point,
-                self.pipeline_layout,
-                0,
-                descriptor_sets,
-                &[],
-            )
-        }
-    }
-
-    pub fn cleanup(&self) {
-        unsafe {
-            self.device
-                .logical_device
-                .destroy_pipeline(self.pipeline, None);
-            self.device
-                .logical_device
-                .destroy_pipeline_layout(self.pipeline_layout, None);
-        }
-    }
-
-    fn create_graphics_pipeline(
-        device: &ash::Device,
-        render_pass: vk::RenderPass,
-        extent: vk::Extent2D,
-        vertex_input_info: vk::PipelineVertexInputStateCreateInfoBuilder,
         shader_stages: &[vk::PipelineShaderStageCreateInfo],
-        set_layouts: &[vk::DescriptorSetLayout],
-    ) -> Result<(vk::PipelineLayout, vk::Pipeline)> {
+    ) -> Result<RendererPipeline> {
+        let vertex_input_attribute_descriptions = Vertex::get_vertex_input_attribute_descriptions();
+        let vertex_input_binding_descriptions = Vertex::get_vertex_input_binding_descriptions();
+        let vertex_input_info = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(vertex_input_attribute_descriptions.as_slice())
+            .vertex_binding_descriptions(vertex_input_binding_descriptions.as_slice());
+
         // input:
 
         let input_assembly_info = vk::PipelineInputAssemblyStateCreateInfo::builder()
@@ -201,8 +131,11 @@ impl RendererPipeline {
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
             .push_constant_ranges(slice::from_ref(&push_constant_range))
             .set_layouts(set_layouts);
-        let pipeline_layout =
-            unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
+        let pipeline_layout = unsafe {
+            device
+                .logical_device
+                .create_pipeline_layout(&pipeline_layout_info, None)?
+        };
 
         let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
             .depth_test_enable(true)
@@ -229,10 +162,117 @@ impl RendererPipeline {
 
         let pipeline = unsafe {
             device
+                .logical_device
                 .create_graphics_pipelines(vk::PipelineCache::null(), &pipeline_infos, None)
                 .unwrap()
         }[0];
 
-        Ok((pipeline_layout, pipeline))
+        Ok(RendererPipeline {
+            device,
+            pipeline,
+            pipeline_layout,
+        })
+    }
+
+    pub fn bind(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline_bind_point: vk::PipelineBindPoint,
+    ) {
+        unsafe {
+            self.device.logical_device.cmd_bind_pipeline(
+                command_buffer,
+                pipeline_bind_point,
+                self.pipeline,
+            );
+        }
+    }
+
+    pub fn bind_descriptor_sets(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline_bind_point: vk::PipelineBindPoint,
+        descriptor_sets: &[vk::DescriptorSet],
+    ) {
+        unsafe {
+            self.device.logical_device.cmd_bind_descriptor_sets(
+                command_buffer,
+                pipeline_bind_point,
+                self.pipeline_layout,
+                0,
+                descriptor_sets,
+                &[],
+            )
+        }
+    }
+
+    pub fn cleanup(&self) {
+        unsafe {
+            self.device
+                .logical_device
+                .destroy_pipeline(self.pipeline, None);
+            self.device
+                .logical_device
+                .destroy_pipeline_layout(self.pipeline_layout, None);
+        }
+    }
+}
+
+impl<'a> ScopPipelineBuilder<'a> {
+    pub fn render_pass(mut self, render_pass: &'a ScopRenderPass) -> Self {
+        self.render_pass = Some(render_pass);
+        self
+    }
+
+    pub fn vert_shader(mut self, shader: Shader) -> Self {
+        self.vert_shader = Some(shader);
+        self
+    }
+
+    pub fn frag_shader(mut self, shader: Shader) -> Self {
+        self.frag_shader = Some(shader);
+        self
+    }
+
+    pub fn set_layouts(mut self, set_layouts: &'a [vk::DescriptorSetLayout]) -> Self {
+        self.set_layouts = set_layouts;
+        self
+    }
+
+    pub fn extent(mut self, extent: vk::Extent2D) -> Self {
+        self.extent = Some(extent);
+        self
+    }
+
+    pub fn build(self) -> Result<RendererPipeline> {
+        ensure!(
+            self.render_pass.is_some(),
+            "ScopPipelineBuilder: No render pass"
+        );
+        ensure!(
+            self.vert_shader
+                .is_some_and(|s| s.stage.contains(vk::ShaderStageFlags::VERTEX)),
+            "ScopPipelineBuilder: No vertex shader, or does not contains vertex stage"
+        );
+        ensure!(
+            self.frag_shader
+                .is_some_and(|s| s.stage.contains(vk::ShaderStageFlags::FRAGMENT)),
+            "ScopPipelineBuilder: No fragment shader, or does not contains fragment stage"
+        );
+        ensure!(self.extent.is_some(), "ScopPipelineBuilder: No extent");
+
+        let entry_point = ffi::CString::new("main")?;
+        let shader_stages = [
+            self.vert_shader.unwrap().shader_stage(&entry_point),
+            self.frag_shader.unwrap().shader_stage(&entry_point),
+        ];
+
+        RendererPipeline::new(
+            self.device,
+            self.extent.unwrap(),
+            self.render_pass.unwrap().render_pass,
+            self.set_layouts,
+            &shader_stages,
+        )
     }
 }
