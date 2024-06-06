@@ -4,7 +4,7 @@ layout(location = 0) in vec3 i_color;
 
 layout(location = 0) out vec4 o_color;
 
-layout(binding = 1) uniform sampler2D texSampler;
+layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 void main() {
     o_color = texture(texSampler, vec2(i_color));

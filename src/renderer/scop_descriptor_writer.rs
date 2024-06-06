@@ -56,6 +56,7 @@ impl<'a> ScopDescriptorWriter<'a> {
 
         for set in descriptor_sets {
             for (binding, buffer) in &self.buffer_infos {
+                assert!((*binding as usize) < self.set_layout.bindings.len(), "This binding does not exist !");
                 write_descriptor_sets.push(
                     *vk::WriteDescriptorSet::builder()
                         .dst_binding(*binding)
@@ -66,6 +67,7 @@ impl<'a> ScopDescriptorWriter<'a> {
             }
 
             for (binding, image) in &self.image_infos {
+                assert!((*binding as usize) < self.set_layout.bindings.len(), "This binding does not exist !");
                 write_descriptor_sets.push(
                     *vk::WriteDescriptorSet::builder()
                         .dst_binding(*binding)

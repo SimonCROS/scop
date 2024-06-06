@@ -70,7 +70,7 @@ impl Engine {
         let material = Rc::new(Material::new(&self.renderer, set_layouts)?);
         material
             .get_writer_for_all(0)
-            .set_texture2d(1, &texture)
+            .set_texture2d(0, &texture)
             .write();
 
         GameObject::builder(self)
