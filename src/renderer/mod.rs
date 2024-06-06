@@ -18,7 +18,7 @@ mod window;
 
 pub use debug::RendererDebug;
 pub use device::{QueueFamily, QueueFamilyId, RendererDevice};
-pub use material::Material;
+pub use material::{Material, MaterialRef, MaterialInstance, MaterialInstanceRef};
 pub use pipeline::{
     RendererPipeline, ScopGpuCameraData, ScopPipelineBuilder, SimplePushConstantData,
 };

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
-use crate::renderer::Material;
+use crate::renderer::MaterialInstanceRef;
 
 use super::{mesh::Mesh, Component, Engine, Transform};
 
@@ -9,7 +9,7 @@ pub struct GameObject {
     pub transform: Transform,
     pub components: HashSet<Box<dyn Component>>,
     pub mesh: Option<Rc<Mesh>>,
-    pub material: Option<Rc<Material>>,
+    pub material: Option<MaterialInstanceRef>,
 }
 
 pub struct GameObjectBuilder<'a> {
@@ -18,7 +18,7 @@ pub struct GameObjectBuilder<'a> {
     transform: Option<Transform>,
     components: HashSet<Box<dyn Component>>,
     mesh: Option<Rc<Mesh>>,
-    material: Option<Rc<Material>>,
+    material: Option<MaterialInstanceRef>,
 }
 
 impl GameObject {
@@ -50,7 +50,7 @@ impl<'a> GameObjectBuilder<'a> {
         self
     }
 
-    pub fn material(mut self, material: Rc<Material>) -> Self {
+    pub fn material(mut self, material: MaterialInstanceRef) -> Self {
         self.material = Some(material);
         self
     }

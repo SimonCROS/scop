@@ -16,9 +16,9 @@ use matrix::traits::Zero;
 pub use transform::*;
 
 use crate::{
-    math::{Up, Vector3},
-    parsing::read_obj_file,
-    renderer::{Material, Renderer, RendererWindow, ScopDescriptorSetLayout, ScopTexture2D},
+    math::{Left, Right, Up, Vector3},
+    parsing::{read_obj_file, read_tga_r8g8b8a8_file},
+    renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout, ScopTexture2D},
 };
 
 pub type GameObjectId = u32;
@@ -53,10 +53,16 @@ impl Engine {
             "./resources/teapot2.obj",
         )?);
 
-        let texture = ScopTexture2D::from_tga_r8g8b8a8_file(
+        let texture_1 = read_tga_r8g8b8a8_file(
             self.renderer.main_device.clone(),
             &self.renderer.graphic_command_pools[0],
             "./textures/earth.tga",
+        )?;
+
+        let texture_2 = read_tga_r8g8b8a8_file(
+            self.renderer.main_device.clone(),
+            &self.renderer.graphic_command_pools[0],
+            "./textures/mars.tga",
         )?;
 
         let set_layouts = vec![ScopDescriptorSetLayout::builder(&self.renderer.main_device)
@@ -67,21 +73,43 @@ impl Engine {
             )
             .build()?];
 
-        let material = Rc::new(Material::new(&self.renderer, set_layouts)?);
-        material
+        let material = Material::new(&self.renderer, set_layouts)?;
+
+        let material_instance_1 = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        material_instance_1
             .get_writer_for_all(0)
-            .set_texture2d(0, &texture)
+            .set_texture2d(0, &texture_1)
+            .write();
+
+        let material_instance_2 = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        material_instance_2
+            .get_writer_for_all(0)
+            .set_texture2d(0, &texture_2)
             .write();
 
         GameObject::builder(self)
             .name("Hello World")
             .mesh(mesh.clone())
-            .material(material)
+            .material(material_instance_2.clone())
             .build();
+
+        let go1 = GameObject::builder(self)
+            .name("Hello World")
+            .mesh(mesh.clone())
+            .material(material_instance_1.clone())
+            .build();
+        go1.borrow_mut().transform.translation = Vector3::left() * 7.;
+
+        let go2 = GameObject::builder(self)
+            .name("Hello World")
+            .mesh(mesh.clone())
+            .material(material_instance_1.clone())
+            .build();
+        go2.borrow_mut().transform.translation = Vector3::right() * 7.;
 
         let mut camera = Camera::empty();
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);
-        camera.set_view_target([0.0, 0.0, -8.0].into(), Vector3::zero(), Vector3::up());
+        camera.set_view_target([0.0, 0.0, -20.0].into(), Vector3::zero(), Vector3::up());
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {
