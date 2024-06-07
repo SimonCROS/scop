@@ -39,7 +39,7 @@ struct TgaHeader {
     image: TgaImageSpecifications,
 }
 
-pub fn read_tga_r8g8b8a8_file(
+pub fn read_tga_r8g8b8a8_srgb_file(
     device: Rc<RendererDevice>,
     command_pool: &ScopCommandPool,
     path: &'static str,
@@ -115,7 +115,7 @@ pub fn read_tga_r8g8b8a8_file(
         &bytes,
         tga_header.image.width as u32,
         tga_header.image.height as u32,
-        vk::Format::B8G8R8A8_UNORM,
+        vk::Format::B8G8R8A8_SRGB,
         tga_header.image.bits_per_pixel as u16,
     )
 }

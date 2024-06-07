@@ -78,7 +78,7 @@ impl MaterialInstance {
             .descriptor_pool(renderer.global_descriptor_pool.descriptor_pool)
             .set_layouts(&material.vk_material_sets_layouts);
 
-        for i in 0..renderer.swapchain.image_count {
+        for _ in 0..renderer.swapchain.image_count {
             material_sets.extend(unsafe {
                 renderer
                     .main_device

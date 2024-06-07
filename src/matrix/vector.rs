@@ -246,6 +246,18 @@ where
     }
 }
 
+impl<const SIZE: usize, K> MulAssign<Vector<SIZE, K>> for Vector<SIZE, K>
+where
+    K: Field,
+{
+    /// Complexity: `O(n)`
+    fn mul_assign(&mut self, other: Self) {
+        for (i, o) in self.0.iter_mut().zip(other.0) {
+            *i *= o;
+        }
+    }
+}
+
 impl<const SIZE: usize, K, S> DivAssign<S> for Vector<SIZE, K>
 where
     K: Field + DivAssign<S>,

@@ -19,12 +19,12 @@ impl Camera {
 
     pub fn set_orthographic_projection(
         &mut self,
-        left: f32,
-        right: f32,
-        top: f32,
-        bottom: f32,
-        near: f32,
-        far: f32,
+        _left: f32,
+        _right: f32,
+        _top: f32,
+        _bottom: f32,
+        _near: f32,
+        _far: f32,
     ) {
         unimplemented!()
     }

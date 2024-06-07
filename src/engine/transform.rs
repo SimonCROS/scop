@@ -4,9 +4,9 @@ use crate::math::{Matrix3, Matrix4, Vector3};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transform {
+    pub pivot: Vector3,
     pub translation: Vector3,
     pub scale: Vector3,
-    pub pivot: Vector3,
     pub rotation: Vector3,
 }
 
@@ -59,9 +59,14 @@ impl Transform {
     // Rotations correspond to Tait-bryan angles of Y(1), X(2), Z(3)
     // https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
     pub fn mat(&self) -> Matrix4 {
-        let rotate = Self::translate(self.pivot * -1.).dot(&Self::rotate(self.rotation)).dot(&Self::translate(self.pivot));
+        let rotate = Self::translate(self.pivot * -1.)
+            .dot(&Self::rotate(self.rotation))
+            .dot(&Self::translate(self.pivot));
 
-        rotate.dot(&Self::scale(self.scale)).dot(&Self::translate(self.translation))
+        let mut pivot_to_mul = self.pivot; // TODO Rewrite Vectors to allow Vector * Vector
+        pivot_to_mul *= self.scale;
+
+        rotate.dot(&Self::scale(self.scale)).dot(&Self::translate(self.translation - pivot_to_mul))
     }
 
     pub fn normal_matrix(&self) -> Matrix3 {
@@ -100,9 +105,9 @@ impl Transform {
 impl Default for Transform {
     fn default() -> Self {
         Self {
-            scale: Vector3::one(),
-            translation: Default::default(),
             pivot: Default::default(),
+            translation: Default::default(),
+            scale: Vector3::one(),
             rotation: Default::default(),
         }
     }

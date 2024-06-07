@@ -37,7 +37,7 @@ impl ScopSwapchain {
         let extent = capabilities.current_extent;
 
         let surface_formats = window.formats(device.physical_device)?;
-        let surface_format = surface_formats.first().unwrap();
+        let surface_format = surface_formats.into_iter().find(|s| s.format == vk::Format::B8G8R8A8_SRGB).expect("B8G8R8A8_SRGB not available");
 
         let swapchain_loader = extensions::khr::Swapchain::new(instance, &device.logical_device);
 

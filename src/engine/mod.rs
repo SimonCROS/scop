@@ -16,7 +16,7 @@ pub use transform::*;
 
 use crate::{
     math::{Left, Right, Up, Vector3},
-    parsing::{read_obj_file, read_tga_r8g8b8a8_file},
+    parsing::{read_obj_file, read_tga_r8g8b8a8_srgb_file},
     renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout},
 };
 
@@ -47,18 +47,29 @@ impl Engine {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let mesh = Rc::new(read_obj_file(
+        let mesh_teapot = Rc::new(read_obj_file(
+            self.renderer.main_device.clone(),
+            "./resources/teapot2.obj",
+        )?);
+
+        let mesh_42 = Rc::new(read_obj_file(
             self.renderer.main_device.clone(),
             "./resources/42.obj",
         )?);
 
-        let texture_1 = read_tga_r8g8b8a8_file(
+        let texture_earth = read_tga_r8g8b8a8_srgb_file(
             self.renderer.main_device.clone(),
             &self.renderer.graphic_command_pools[0],
             "./textures/earth.tga",
         )?;
 
-        let texture_2 = read_tga_r8g8b8a8_file(
+        let texture_mars = read_tga_r8g8b8a8_srgb_file(
+            self.renderer.main_device.clone(),
+            &self.renderer.graphic_command_pools[0],
+            "./textures/mars.tga",
+        )?;
+
+        let texture_ponies = read_tga_r8g8b8a8_srgb_file(
             self.renderer.main_device.clone(),
             &self.renderer.graphic_command_pools[0],
             "./textures/ponies.tga",
@@ -74,52 +85,58 @@ impl Engine {
 
         let material = Material::new(&self.renderer, set_layouts)?;
 
-        let material_instance_1 = MaterialInstance::instanciate(&self.renderer, material.clone())?;
-        material_instance_1
+        let material_instance_earth = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        material_instance_earth
             .get_writer_for_all(0)
-            .set_texture2d(0, &texture_1)
+            .set_texture2d(0, &texture_earth)
             .write();
 
-        let material_instance_2 = MaterialInstance::instanciate(&self.renderer, material.clone())?;
-        material_instance_2
+        let material_instance_ponies = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        material_instance_ponies
             .get_writer_for_all(0)
-            .set_texture2d(0, &texture_2)
+            .set_texture2d(0, &texture_ponies)
+            .write();
+
+        let material_instance_mars = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        material_instance_mars
+            .get_writer_for_all(0)
+            .set_texture2d(0, &texture_mars)
             .write();
 
         let go0 = GameObject::builder(self)
             .name("Hello World")
-            .mesh(mesh.clone())
-            .material(material_instance_2.clone())
+            .mesh(mesh_42.clone())
+            .material(material_instance_ponies.clone())
             .build();
 
-        go0.borrow_mut().transform.pivot = mesh.bounding_box.get_middle_point();
+        go0.borrow_mut().transform.pivot = mesh_42.bounding_box.get_middle_point();
         go0.borrow_mut().transform.scale = Vector3::one() * 2.;
-        go0.borrow_mut().transform.translation -= mesh.bounding_box.get_middle_point() * 2.;
 
-        // let go1 = GameObject::builder(self)
-        //     .name("Hello World")
-        //     .mesh(mesh.clone())
-        //     .material(material_instance_1.clone())
-        //     .build();
-        // go1.borrow_mut().transform.translation = Vector3::left() * 7.;
+        let go1 = GameObject::builder(self)
+            .name("Hello World")
+            .mesh(mesh_teapot.clone())
+            .material(material_instance_earth.clone())
+            .build();
+        go1.borrow_mut().transform.translation = Vector3::left() * 7.;
 
-        // let go2 = GameObject::builder(self)
-        //     .name("Hello World")
-        //     .mesh(mesh.clone())
-        //     .material(material_instance_1.clone())
-        //     .build();
-        // go2.borrow_mut().transform.translation = Vector3::right() * 7.;
+        let go2 = GameObject::builder(self)
+            .name("Hello World")
+            .mesh(mesh_teapot.clone())
+            .material(material_instance_mars.clone())
+            .build();
+        go2.borrow_mut().transform.translation = Vector3::right() * 7.;
 
         let mut camera = Camera::empty();
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);
-        camera.set_view_target([0.0, 0.0, -10.0].into(), Vector3::zero(), Vector3::up());
+        // camera.set_view_target([20.0, 0.0, 0.0].into(), Vector3::zero(), Vector3::up());
+        camera.set_view_target([0.0, 0.0, -20.0].into(), Vector3::zero(), Vector3::up());
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {
             self.renderer
                 .handle_draw_request(&camera, &self.game_objects)?;
             let yaw =
-                (std::f32::consts::PI * 2f32 / 42f32) * (self.renderer.frame_count % 42) as f32;
+                (std::f32::consts::PI * 2f32 / 420f32) * (self.renderer.frame_count % 420) as f32;
             let roll =
                 (std::f32::consts::PI * 2f32 / 840f32) * (self.renderer.frame_count % 840) as f32;
             let roll = 0f32;
