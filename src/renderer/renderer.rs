@@ -12,7 +12,7 @@ use ash::{
     vk::{self, CommandPoolCreateFlags, PipelineStageFlags, QueueFlags, ShaderStageFlags},
 };
 
-use crate::engine::{camera::Camera, GameObject};
+use crate::engine::{camera::Camera, mesh::Mesh, GameObject};
 
 use raw_window_handle::HasRawDisplayHandle;
 
@@ -230,6 +230,7 @@ impl Renderer {
         command_buffer: vk::CommandBuffer,
         image_index: u32,
     ) {
+        let mut previous_mesh_ptr: *const Mesh = std::ptr::null();
         let mut previous_material_ptr: *const Material = std::ptr::null();
         let mut previous_material_instance_ptr: *const MaterialInstance = std::ptr::null();
 
@@ -276,7 +277,12 @@ impl Renderer {
                     );
                 }
 
-                mesh.bind(command_buffer);
+                if previous_mesh_ptr != Rc::as_ptr(mesh) {
+                    previous_mesh_ptr = Rc::as_ptr(mesh);
+
+                    mesh.bind(command_buffer);
+                }
+
                 mesh.draw(command_buffer);
             }
         }
