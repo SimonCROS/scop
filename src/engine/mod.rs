@@ -118,7 +118,7 @@ impl Engine {
             self.renderer
                 .handle_draw_request(&camera, &self.game_objects)?;
             let yaw =
-                (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
+                (std::f32::consts::PI * 2f32 / 420f32) * (self.renderer.frame_count % 420) as f32;
             let roll =
                 (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
             let roll = 0f32;
