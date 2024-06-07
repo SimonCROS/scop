@@ -79,7 +79,6 @@ impl MaterialInstance {
             .set_layouts(&material.vk_material_sets_layouts);
 
         for i in 0..renderer.swapchain.image_count {
-            dbg!(i);
             material_sets.extend(unsafe {
                 renderer
                     .main_device

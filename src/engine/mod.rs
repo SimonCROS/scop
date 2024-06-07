@@ -1,7 +1,6 @@
 pub mod camera;
 mod components;
 mod game_object;
-mod material_bank;
 pub mod mesh;
 mod transform;
 
@@ -18,7 +17,7 @@ pub use transform::*;
 use crate::{
     math::{Left, Right, Up, Vector3},
     parsing::{read_obj_file, read_tga_r8g8b8a8_file},
-    renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout, ScopTexture2D},
+    renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout},
 };
 
 pub type GameObjectId = u32;

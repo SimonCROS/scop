@@ -1,9 +1,14 @@
-use std::{fs::File, io::{Read, Seek}, mem::size_of, rc::Rc};
+use std::{
+    fs::File,
+    io::{Read, Seek},
+    mem::size_of,
+    rc::Rc,
+};
 
 use anyhow::{ensure, Result};
 use ash::vk;
 
-use crate::{parsing::tga, renderer::{RendererDevice, ScopCommandPool, ScopTexture2D}};
+use crate::renderer::{RendererDevice, ScopCommandPool, ScopTexture2D};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(packed)]
@@ -91,18 +96,18 @@ pub fn read_tga_r8g8b8a8_file(
     let mut bytes = vec![0u8; content_len];
     file.read_exact(&mut bytes)?;
 
-    if tga_header.image.height > 1 {
-        let half_len = content_len / 2;
-        let (left, right) = bytes.split_at_mut(half_len);
-        let width = tga_header.image.width as usize * bytes_per_pixel;
+    // if tga_header.image.height > 1 {
+    //     let half_len = content_len / 2;
+    //     let (left, right) = bytes.split_at_mut(half_len);
+    //     let width = tga_header.image.width as usize * bytes_per_pixel;
 
-        for i in (0..half_len).step_by(width as usize) {
-            if i <= half_len - width {
-                // Greater when height is odd
-                left[i..i + width].swap_with_slice(&mut right[half_len - i - width..half_len - i])
-            }
-        }
-    }
+    //     for i in (0..half_len).step_by(width as usize) {
+    //         if i <= half_len - width {
+    //             // Greater when height is odd
+    //             left[i..i + width].swap_with_slice(&mut right[half_len - i - width..half_len - i])
+    //         }
+    //     }
+    // }
 
     ScopTexture2D::new(
         device,
