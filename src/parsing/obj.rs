@@ -44,7 +44,7 @@ pub fn read_obj_file(device: Rc<RendererDevice>, path: &'static str) -> Result<M
             vert.position[0] = values.next().context("Not enough values for vertex")??;
             vert.position[1] = values.next().context("Not enough values for vertex")??;
             vert.position[2] = values.next().context("Not enough values for vertex")??;
-            vert.uv[0] = vert.position[0];
+            vert.uv[0] = vert.position[2];
             vert.uv[1] = vert.position[1];
             ensure!(values.next().is_none(), "Too many parts in vertex");
             vertices.push(vert);

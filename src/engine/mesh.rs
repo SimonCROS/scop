@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use anyhow::{Context, Ok, Result};
+use anyhow::{ensure, Context, Ok, Result};
 use ash::vk::{
     self, BufferUsageFlags, CommandBuffer, MemoryPropertyFlags, VertexInputAttributeDescription,
     VertexInputBindingDescription, WHOLE_SIZE,
@@ -22,8 +22,16 @@ pub struct Vertex {
     pub uv: Vector2,
 }
 
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+pub struct BoundingBox {
+    pub min: Vector3,
+    pub max: Vector3,
+}
+
 pub struct Mesh {
     device: Rc<RendererDevice>,
+    pub bounding_box: BoundingBox,
+    // pub vertices: Vec<Vertex>,
     vertex_buffer: ScopBuffer,
     index_buffer: Option<ScopBuffer>,
 }
@@ -150,7 +158,14 @@ impl<'a> MeshBuilder<'a> {
         let vertices = self
             .vertices
             .context("Cannot build a Mesh without vertices.")?;
+
         let vertices_count = vertices.len();
+        let indices_count = self.indices.map_or(0, |i| i.len());
+
+        ensure!(vertices_count > 3, "Vertices count must greater than 3");
+        ensure!(indices_count % 3 == 0, "Indices count must be a multiple of 3");
+        ensure!(indices_count != 0 || vertices_count % 3 == 0, "Vertices count must be a multiple of 3 when no indices");
+
         let mut vertex_buffer = ScopBuffer::new(
             self.device.clone(),
             vertices_count,
@@ -164,7 +179,6 @@ impl<'a> MeshBuilder<'a> {
         vertex_buffer.unmap();
 
         let index_buffer = self.indices.map_or(Ok(None), |indices| {
-            let indices_count = indices.len();
             let mut index_buffer = ScopBuffer::new(
                 self.device.clone(),
                 indices_count,
@@ -182,8 +196,39 @@ impl<'a> MeshBuilder<'a> {
 
         Ok(Mesh {
             device: self.device,
+            bounding_box: BoundingBox::from(vertices),
+            // vertices: vertices.to_vec(),
             vertex_buffer,
             index_buffer,
         })
+    }
+}
+
+impl BoundingBox {
+    pub fn get_middle_point(&self) -> Vector3 {
+        self.min + (self.max - self.min) / 2.
+    }
+}
+
+impl From<&[Vertex]> for BoundingBox {
+    fn from(vertices: &[Vertex]) -> Self {
+        let mut min = Vector3::from([f32::MAX, f32::MAX, f32::MAX]);
+        let mut max = Vector3::from([f32::MIN, f32::MIN, f32::MIN]);
+
+        for vert in vertices {
+            for i in 0..3 {
+                if vert.position[i] < min[i] {
+                    min[i] = vert.position[i];
+                }
+                if vert.position[i] > max[i] {
+                    max[i] = vert.position[i];
+                }
+            }
+        }
+
+        Self {
+            min,
+            max,
+        }
     }
 }

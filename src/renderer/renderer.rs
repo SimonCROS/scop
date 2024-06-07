@@ -17,7 +17,7 @@ use crate::engine::{camera::Camera, GameObject};
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    Material, MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer,
+    MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer,
     ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter,
     ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData,
 };

@@ -11,7 +11,7 @@ use ash::vk;
 use camera::Camera;
 pub use components::*;
 pub use game_object::*;
-use matrix::traits::Zero;
+use matrix::traits::{One, Zero};
 pub use transform::*;
 
 use crate::{
@@ -49,7 +49,7 @@ impl Engine {
     pub fn run(&mut self) -> Result<()> {
         let mesh = Rc::new(read_obj_file(
             self.renderer.main_device.clone(),
-            "./resources/teapot2.obj",
+            "./resources/42.obj",
         )?);
 
         let texture_1 = read_tga_r8g8b8a8_file(
@@ -61,7 +61,7 @@ impl Engine {
         let texture_2 = read_tga_r8g8b8a8_file(
             self.renderer.main_device.clone(),
             &self.renderer.graphic_command_pools[0],
-            "./textures/mars.tga",
+            "./textures/ponies.tga",
         )?;
 
         let set_layouts = vec![ScopDescriptorSetLayout::builder(&self.renderer.main_device)
@@ -86,29 +86,32 @@ impl Engine {
             .set_texture2d(0, &texture_2)
             .write();
 
-        GameObject::builder(self)
+        let go0 = GameObject::builder(self)
             .name("Hello World")
             .mesh(mesh.clone())
             .material(material_instance_2.clone())
             .build();
 
-        let go1 = GameObject::builder(self)
-            .name("Hello World")
-            .mesh(mesh.clone())
-            .material(material_instance_1.clone())
-            .build();
-        go1.borrow_mut().transform.translation = Vector3::left() * 7.;
+        go0.borrow_mut().transform.pivot = mesh.bounding_box.get_middle_point();
+        go0.borrow_mut().transform.scale = Vector3::one() * 2.;
 
-        let go2 = GameObject::builder(self)
-            .name("Hello World")
-            .mesh(mesh.clone())
-            .material(material_instance_1.clone())
-            .build();
-        go2.borrow_mut().transform.translation = Vector3::right() * 7.;
+        // let go1 = GameObject::builder(self)
+        //     .name("Hello World")
+        //     .mesh(mesh.clone())
+        //     .material(material_instance_1.clone())
+        //     .build();
+        // go1.borrow_mut().transform.translation = Vector3::left() * 7.;
+
+        // let go2 = GameObject::builder(self)
+        //     .name("Hello World")
+        //     .mesh(mesh.clone())
+        //     .material(material_instance_1.clone())
+        //     .build();
+        // go2.borrow_mut().transform.translation = Vector3::right() * 7.;
 
         let mut camera = Camera::empty();
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);
-        camera.set_view_target([0.0, 0.0, -20.0].into(), Vector3::zero(), Vector3::up());
+        camera.set_view_target([0.0, 0.0, -10.0].into(), Vector3::zero(), Vector3::up());
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {
@@ -118,7 +121,7 @@ impl Engine {
                 (std::f32::consts::PI * 2f32 / 542f32) * (self.renderer.frame_count % 542) as f32;
             let roll =
                 (std::f32::consts::PI * 2f32 / 1000f32) * (self.renderer.frame_count % 1000) as f32;
-            // let roll = 0f32;
+            let roll = 0f32;
             self.game_objects.values_mut().for_each(|e| {
                 e.borrow_mut().transform.rotation = [0., yaw, roll].into();
             });

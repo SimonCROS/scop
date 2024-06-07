@@ -1,7 +1,7 @@
 use core::slice;
 use std::{ffi, mem, rc::Rc};
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{ensure, Result};
 use ash::vk::{self, PushConstantRange, ShaderStageFlags};
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
     math::{Matrix3, Matrix4},
 };
 
-use super::{RendererDevice, ScopDescriptorSetLayout, ScopRenderPass, Shader};
+use super::{RendererDevice, ScopRenderPass, Shader};
 
 pub struct SimplePushConstantData {
     pub model_matrix: Matrix4,
