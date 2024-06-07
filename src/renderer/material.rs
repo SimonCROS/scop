@@ -78,12 +78,13 @@ impl MaterialInstance {
             .descriptor_pool(renderer.global_descriptor_pool.descriptor_pool)
             .set_layouts(&material.vk_material_sets_layouts);
 
-        for _ in 0..renderer.swapchain.image_count {
-            material_sets.push(unsafe {
+        for i in 0..renderer.swapchain.image_count {
+            dbg!(i);
+            material_sets.extend(unsafe {
                 renderer
                     .main_device
                     .logical_device
-                    .allocate_descriptor_sets(&allocate_info)?[0]
+                    .allocate_descriptor_sets(&allocate_info)?
             });
         }
 
