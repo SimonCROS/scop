@@ -85,32 +85,112 @@ impl Engine {
 
         let material = Material::new(&self.renderer, set_layouts)?;
 
-        let material_instance_earth = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        let material_instance_earth =
+            MaterialInstance::instanciate(&self.renderer, material.clone())?;
         material_instance_earth
             .get_writer_for_all(0)
             .set_texture2d(0, &texture_earth)
             .write();
 
-        let material_instance_ponies = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        let material_instance_ponies =
+            MaterialInstance::instanciate(&self.renderer, material.clone())?;
         material_instance_ponies
             .get_writer_for_all(0)
             .set_texture2d(0, &texture_ponies)
             .write();
 
-        let material_instance_mars = MaterialInstance::instanciate(&self.renderer, material.clone())?;
+        let material_instance_mars =
+            MaterialInstance::instanciate(&self.renderer, material.clone())?;
         material_instance_mars
             .get_writer_for_all(0)
             .set_texture2d(0, &texture_mars)
             .write();
 
-        let go0 = GameObject::builder(self)
+        let shared_42 = Transform {
+            pivot: mesh_42.bounding_box.get_middle_point(),
+            scale: Vector3::one() * 2.,
+            ..Default::default()
+        };
+
+        GameObject::builder(self)
             .name("Hello World")
             .mesh(mesh_42.clone())
             .material(material_instance_ponies.clone())
+            .transform(shared_42)
             .build();
 
-        go0.borrow_mut().transform.pivot = mesh_42.bounding_box.get_middle_point();
-        go0.borrow_mut().transform.scale = Vector3::one() * 2.;
+        {
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_42.clone())
+                .material(material_instance_mars.clone())
+                .transform(shared_42)
+                .build();
+            go.borrow_mut().transform.translation = Vector3::from([7., 7., 0.]);
+
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_teapot.clone())
+                .material(material_instance_mars.clone())
+                .build();
+            go.borrow_mut().transform.translation = Vector3::right() * 7.;
+
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_42.clone())
+                .material(material_instance_mars.clone())
+                .transform(shared_42)
+                .build();
+            go.borrow_mut().transform.translation = Vector3::from([7., -7., 0.]);
+        }
+
+        {
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_teapot.clone())
+                .material(material_instance_ponies.clone())
+                .build();
+            go.borrow_mut().transform.translation = Vector3::from([0., 7., 0.]);
+
+            GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_42.clone())
+                .material(material_instance_ponies.clone())
+                .transform(shared_42)
+                .build();
+
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_teapot.clone())
+                .material(material_instance_ponies.clone())
+                .build();
+            go.borrow_mut().transform.translation = Vector3::from([0., -7., 0.]);
+        }
+
+        {
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_42.clone())
+                .material(material_instance_earth.clone())
+                .transform(shared_42)
+                .build();
+            go.borrow_mut().transform.translation = Vector3::from([-7., 7., 0.]);
+
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_teapot.clone())
+                .material(material_instance_earth.clone())
+                .build();
+            go.borrow_mut().transform.translation = Vector3::left() * 7.;
+
+            let go = GameObject::builder(self)
+                .name("Hello World")
+                .mesh(mesh_42.clone())
+                .material(material_instance_earth.clone())
+                .transform(shared_42)
+                .build();
+            go.borrow_mut().transform.translation = Vector3::from([-7., -7., 0.]);
+        }
 
         let go1 = GameObject::builder(self)
             .name("Hello World")
@@ -118,13 +198,6 @@ impl Engine {
             .material(material_instance_earth.clone())
             .build();
         go1.borrow_mut().transform.translation = Vector3::left() * 7.;
-
-        let go2 = GameObject::builder(self)
-            .name("Hello World")
-            .mesh(mesh_teapot.clone())
-            .material(material_instance_mars.clone())
-            .build();
-        go2.borrow_mut().transform.translation = Vector3::right() * 7.;
 
         let mut camera = Camera::empty();
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);

@@ -92,7 +92,7 @@ impl RendererPipeline {
         let rasterizer_info = vk::PipelineRasterizationStateCreateInfo::builder()
             .polygon_mode(vk::PolygonMode::FILL)
             .line_width(1f32)
-            .cull_mode(vk::CullModeFlags::NONE)
+            .cull_mode(vk::CullModeFlags::BACK)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE);
 
         // multisampler:

@@ -2,7 +2,7 @@ use matrix::traits::{Dot, One};
 
 use crate::math::{Matrix3, Matrix4, Vector3};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Transform {
     pub pivot: Vector3,
     pub translation: Vector3,

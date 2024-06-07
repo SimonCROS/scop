@@ -17,9 +17,7 @@ use crate::engine::{camera::Camera, GameObject};
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer,
-    ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter,
-    ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData,
+    Material, MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter, ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData
 };
 
 pub struct Renderer {
@@ -232,27 +230,33 @@ impl Renderer {
         command_buffer: vk::CommandBuffer,
         image_index: u32,
     ) {
-        let mut previous_material_ptr: *const MaterialInstance = std::ptr::null();
+        let mut previous_material_ptr: *const Material = std::ptr::null();
+        let mut previous_material_instance_ptr: *const MaterialInstance = std::ptr::null();
 
         for go in game_objects.values() {
             let game_object = go.borrow();
 
             if let Some(mesh) = &game_object.mesh {
-                let material = game_object.material.as_ref().unwrap();
+                let material_instance = game_object.material.as_ref().unwrap();
 
-                if previous_material_ptr != Rc::as_ptr(material) {
-                    previous_material_ptr = Rc::as_ptr(material);
+                if previous_material_ptr != Rc::as_ptr(&material_instance.material) {
+                    previous_material_ptr = Rc::as_ptr(&material_instance.material);
 
-                    material
+                    material_instance
                         .material
                         .pipeline
                         .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
-                    material.material.pipeline.bind_descriptor_sets(
+                }
+
+                if previous_material_instance_ptr != Rc::as_ptr(material_instance) {
+                    previous_material_instance_ptr = Rc::as_ptr(material_instance);
+
+                    material_instance.material.pipeline.bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         &[
                             self.global_descriptor_sets[image_index as usize],
-                            material.material_sets[image_index as usize],
+                            material_instance.material_sets[image_index as usize],
                         ],
                     );
                 }
@@ -265,7 +269,7 @@ impl Renderer {
                 unsafe {
                     self.main_device.logical_device.cmd_push_constants(
                         command_buffer,
-                        material.material.pipeline.pipeline_layout,
+                        material_instance.material.pipeline.pipeline_layout,
                         ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
                         0,
                         crate::utils::any_as_u8_slice(&push),
