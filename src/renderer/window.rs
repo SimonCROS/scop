@@ -19,7 +19,7 @@ impl RendererWindow {
         let event_loop = EventLoop::new()?;
         let window = WindowBuilder::new()
             .with_title("scop")
-            .with_inner_size(LogicalSize::new(1024, 1024))
+            .with_inner_size(LogicalSize::new(1000, 1000))
             .with_resizable(false)
             .build(&event_loop)?;
 
