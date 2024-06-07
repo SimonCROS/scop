@@ -112,13 +112,6 @@ impl Engine {
             ..Default::default()
         };
 
-        GameObject::builder(self)
-            .name("Hello World")
-            .mesh(mesh_42.clone())
-            .material(material_instance_ponies.clone())
-            .transform(shared_42)
-            .build();
-
         {
             let go = GameObject::builder(self)
                 .name("Hello World")
@@ -191,13 +184,6 @@ impl Engine {
                 .build();
             go.borrow_mut().transform.translation = Vector3::from([-7., -7., 0.]);
         }
-
-        let go1 = GameObject::builder(self)
-            .name("Hello World")
-            .mesh(mesh_teapot.clone())
-            .material(material_instance_earth.clone())
-            .build();
-        go1.borrow_mut().transform.translation = Vector3::left() * 7.;
 
         let mut camera = Camera::empty();
         camera.set_perspective_projection(60.0, 1.0, 0.0, 100.0);
