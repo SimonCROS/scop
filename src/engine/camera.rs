@@ -26,6 +26,7 @@ impl Camera {
         near: f32,
         far: f32,
     ) {
+        unimplemented!()
     }
 
     pub fn set_perspective_projection(&mut self, fovy: f32, aspect: f32, near: f32, far: f32) {
