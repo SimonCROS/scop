@@ -17,7 +17,11 @@ impl Vec3 {
     }
 
     pub fn one() -> Self {
-        Self { x: 1., y: 1., z: 1. }
+        Self {
+            x: 1.,
+            y: 1.,
+            z: 1.,
+        }
     }
 
     pub fn left() -> Self {
@@ -124,6 +128,14 @@ impl Vec3 {
             z: ((1.0 - cos_angle) * x * z - sin_angle * y) * axis.x
                 + ((1.0 - cos_angle) * y * z + sin_angle * x) * axis.y
                 + (cos_angle + (1.0 - cos_angle) * z * z) * axis.z,
+        }
+    }
+
+    pub fn cross(&self, other: &Self) -> Self {
+        Self {
+            x: self.y * other.z - self.z * other.y,
+            y: self.z * other.x - self.x * other.z,
+            z: self.x * other.y - self.y * other.x,
         }
     }
 

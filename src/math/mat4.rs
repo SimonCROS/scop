@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
 use crate::macros::{forward_ref_binop, forward_ref_op_assign};
+use crate::Vec3;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Mat4([[f32; 4]; 4]);
@@ -108,6 +109,50 @@ impl Mat4 {
         let i = submatrix[2][2];
 
         a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    }
+
+    pub fn rotate(rotation: Vec3) -> Mat4 {
+        let c3: f32 = rotation.z.cos();
+        let s3: f32 = rotation.z.sin();
+        let c2: f32 = rotation.x.cos();
+        let s2: f32 = rotation.x.sin();
+        let c1: f32 = rotation.y.cos();
+        let s1: f32 = rotation.y.sin();
+
+        Mat4::from([
+            [
+                c1 * c3 + s1 * s2 * s3,
+                c2 * s3,
+                c1 * s2 * s3 - c3 * s1,
+                0.0f32,
+            ],
+            [
+                c3 * s1 * s2 - c1 * s3,
+                c2 * c3,
+                c1 * c3 * s2 + s1 * s3,
+                0.0f32,
+            ],
+            [c2 * s1, -s2, c1 * c2, 0.0f32],
+            [0.0f32, 0.0f32, 0.0f32, 1.0f32],
+        ])
+    }
+
+    pub fn scale(factor: Vec3) -> Mat4 {
+        Mat4::from([
+            [factor.x, 0.0f32, 0.0f32, 0.0f32],
+            [0.0f32, factor.y, 0.0f32, 0.0f32],
+            [0.0f32, 0.0f32, factor.z, 0.0f32],
+            [0.0f32, 0.0f32, 0.0f32, 1.0f32],
+        ])
+    }
+
+    pub fn translate(translation: Vec3) -> Mat4 {
+        Mat4::from([
+            [1.0f32, 0.0f32, 0.0f32, 0.0f32],
+            [0.0f32, 1.0f32, 0.0f32, 0.0f32],
+            [0.0f32, 0.0f32, 1.0f32, 0.0f32],
+            [translation.x, translation.y, translation.z, 1.0f32],
+        ])
     }
 }
 

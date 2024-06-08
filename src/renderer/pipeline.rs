@@ -3,23 +3,21 @@ use std::{ffi, mem, rc::Rc};
 
 use anyhow::{ensure, Result};
 use ash::vk::{self, PushConstantRange, ShaderStageFlags};
+use math::{Mat3, Mat4};
 
-use crate::{
-    engine::mesh::Vertex,
-    math::{Matrix3, Matrix4},
-};
+use crate::engine::mesh::Vertex;
 
 use super::{RendererDevice, ScopRenderPass, Shader};
 
 pub struct SimplePushConstantData {
-    pub model_matrix: Matrix4,
-    pub normal_matrix: Matrix3,
+    pub model_matrix: Mat4,
+    pub normal_matrix: Mat3,
 }
 
 #[derive(Copy, Clone)]
 pub struct ScopGpuCameraData {
-    pub projection: Matrix4,
-    pub view: Matrix4,
+    pub projection: Mat4,
+    pub view: Mat4,
 }
 
 pub struct RendererPipeline {

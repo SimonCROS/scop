@@ -61,7 +61,7 @@ impl Camera {
 
     pub fn set_view_direction(&mut self, position: Vec3, direction: Vec3, up: Vec3) {
         let w = direction.normalized();
-        let u = w.cross(&up).normalize();
+        let u = w.cross(&up).normalized();
         let v = w.cross(&u);
 
         self.view_matrix[0][0] = u.x;
