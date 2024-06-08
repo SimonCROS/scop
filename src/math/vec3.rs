@@ -16,6 +16,10 @@ impl Vec3 {
         Self { x, y, z }
     }
 
+    pub fn one() -> Self {
+        Self { x: 1., y: 1., z: 1. }
+    }
+
     pub fn left() -> Self {
         Self {
             x: -1.,

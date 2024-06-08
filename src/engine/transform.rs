@@ -12,12 +12,12 @@ pub struct Transform {
 
 impl Transform {
     fn rotate(rotation: Vec3) -> Matrix4 {
-        let c3: f32 = rotation.z().cos();
-        let s3: f32 = rotation.z().sin();
-        let c2: f32 = rotation.x().cos();
-        let s2: f32 = rotation.x().sin();
-        let c1: f32 = rotation.y().cos();
-        let s1: f32 = rotation.y().sin();
+        let c3: f32 = rotation.z.cos();
+        let s3: f32 = rotation.z.sin();
+        let c2: f32 = rotation.x.cos();
+        let s2: f32 = rotation.x.sin();
+        let c1: f32 = rotation.y.cos();
+        let s1: f32 = rotation.y.sin();
 
         Matrix4::from([
             [
@@ -39,9 +39,9 @@ impl Transform {
 
     fn scale(scale: Vec3) -> Matrix4 {
         Matrix4::from([
-            [scale.x(), 0.0f32, 0.0f32, 0.0f32],
-            [0.0f32, scale.y(), 0.0f32, 0.0f32],
-            [0.0f32, 0.0f32, scale.z(), 0.0f32],
+            [scale.x, 0.0f32, 0.0f32, 0.0f32],
+            [0.0f32, scale.y, 0.0f32, 0.0f32],
+            [0.0f32, 0.0f32, scale.z, 0.0f32],
             [0.0f32, 0.0f32, 0.0f32, 1.0f32],
         ])
     }
@@ -51,7 +51,7 @@ impl Transform {
             [1.0f32, 0.0f32, 0.0f32, 0.0f32],
             [0.0f32, 1.0f32, 0.0f32, 0.0f32],
             [0.0f32, 0.0f32, 1.0f32, 0.0f32],
-            [translation.x(), translation.y(), translation.z(), 1.0f32],
+            [translation.x, translation.y, translation.z, 1.0f32],
         ])
     }
 
@@ -70,12 +70,12 @@ impl Transform {
     }
 
     pub fn normal_matrix(&self) -> Matrix3 {
-        let c3: f32 = self.rotation.z().cos();
-        let s3: f32 = self.rotation.z().sin();
-        let c2: f32 = self.rotation.x().cos();
-        let s2: f32 = self.rotation.x().sin();
-        let c1: f32 = self.rotation.y().cos();
-        let s1: f32 = self.rotation.y().sin();
+        let c3: f32 = self.rotation.z.cos();
+        let s3: f32 = self.rotation.z.sin();
+        let c2: f32 = self.rotation.x.cos();
+        let s2: f32 = self.rotation.x.sin();
+        let c1: f32 = self.rotation.y.cos();
+        let s1: f32 = self.rotation.y.sin();
         let inv_scale: Vec3 = Vec3::from([
             1.0f32 / self.scale[0],
             1.0f32 / self.scale[1],
@@ -84,19 +84,19 @@ impl Transform {
 
         return Matrix3::from([
             [
-                inv_scale.x() * (c1 * c3 + s1 * s2 * s3),
-                inv_scale.x() * (c2 * s3),
-                inv_scale.x() * (c1 * s2 * s3 - c3 * s1),
+                inv_scale.x * (c1 * c3 + s1 * s2 * s3),
+                inv_scale.x * (c2 * s3),
+                inv_scale.x * (c1 * s2 * s3 - c3 * s1),
             ],
             [
-                inv_scale.y() * (c3 * s1 * s2 - c1 * s3),
-                inv_scale.y() * (c2 * c3),
-                inv_scale.y() * (c1 * c3 * s2 + s1 * s3),
+                inv_scale.y * (c3 * s1 * s2 - c1 * s3),
+                inv_scale.y * (c2 * c3),
+                inv_scale.y * (c1 * c3 * s2 + s1 * s3),
             ],
             [
-                inv_scale.z() * (c2 * s1),
-                inv_scale.z() * (-s2),
-                inv_scale.z() * (c1 * c2),
+                inv_scale.z * (c2 * s1),
+                inv_scale.z * (-s2),
+                inv_scale.z * (c1 * c2),
             ],
         ]);
     }

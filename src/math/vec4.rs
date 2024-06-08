@@ -1,5 +1,5 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 use std::fmt::{self, Display, Formatter};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
 use crate::macros::{forward_ref_binop, forward_ref_op_assign};
 use crate::{Vec2, Vec3};
@@ -17,28 +17,67 @@ impl Vec4 {
         Self { x, y, z, w }
     }
 
+    pub fn one() -> Self {
+        Self {
+            x: 1.,
+            y: 1.,
+            z: 1.,
+            w: 1.,
+        }
+    }
+
     pub fn left() -> Self {
-        Self { x: -1., y: 0., z: 0., w: 0. }
+        Self {
+            x: -1.,
+            y: 0.,
+            z: 0.,
+            w: 0.,
+        }
     }
 
     pub fn right() -> Self {
-        Self { x: 1., y: 0., z: 0., w: 0. }
+        Self {
+            x: 1.,
+            y: 0.,
+            z: 0.,
+            w: 0.,
+        }
     }
 
     pub fn up() -> Self {
-        Self { x: 0., y: 1., z: 0., w: 0. }
+        Self {
+            x: 0.,
+            y: 1.,
+            z: 0.,
+            w: 0.,
+        }
     }
 
     pub fn down() -> Self {
-        Self { x: 0., y: -1., z: 0., w: 0. }
+        Self {
+            x: 0.,
+            y: -1.,
+            z: 0.,
+            w: 0.,
+        }
     }
 
     pub fn forward() -> Self {
-        Self { x: 0., y: 0., z: -1., w: 0. }
+        Self {
+            x: 0.,
+            y: 0.,
+            z: -1.,
+            w: 0.,
+        }
     }
 
     pub fn backward() -> Self {
-        Self { x: 0., y: 0., z: 1., w: 0. }
+        Self {
+            x: 0.,
+            y: 0.,
+            z: 1.,
+            w: 0.,
+        }
     }
 
     pub fn negative_infinity() -> Self {

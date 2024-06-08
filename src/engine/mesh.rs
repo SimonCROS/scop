@@ -8,11 +8,9 @@ use ash::vk::{
     self, BufferUsageFlags, CommandBuffer, MemoryPropertyFlags, VertexInputAttributeDescription,
     VertexInputBindingDescription, WHOLE_SIZE,
 };
+use math::{Vec2, Vec3};
 
-use crate::{
-    math::{Vec2, Vec3},
-    renderer::{RendererDevice, ScopBuffer},
-};
+use crate::renderer::{RendererDevice, ScopBuffer};
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Vertex {
@@ -163,8 +161,14 @@ impl<'a> MeshBuilder<'a> {
         let indices_count = self.indices.map_or(0, |i| i.len());
 
         ensure!(vertices_count > 3, "Vertices count must greater than 3");
-        ensure!(indices_count % 3 == 0, "Indices count must be a multiple of 3");
-        ensure!(indices_count != 0 || vertices_count % 3 == 0, "Vertices count must be a multiple of 3 when no indices");
+        ensure!(
+            indices_count % 3 == 0,
+            "Indices count must be a multiple of 3"
+        );
+        ensure!(
+            indices_count != 0 || vertices_count % 3 == 0,
+            "Vertices count must be a multiple of 3 when no indices"
+        );
 
         let mut vertex_buffer = ScopBuffer::new(
             self.device.clone(),
@@ -226,9 +230,6 @@ impl From<&[Vertex]> for BoundingBox {
             }
         }
 
-        Self {
-            min,
-            max,
-        }
+        Self { min, max }
     }
 }

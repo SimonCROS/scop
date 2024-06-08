@@ -11,11 +11,10 @@ use ash::vk;
 use camera::Camera;
 pub use components::*;
 pub use game_object::*;
-use matrix::traits::{One, Zero};
+use math::Vec3;
 pub use transform::*;
 
 use crate::{
-    math::{Left, Right, Up, Vec3},
     parsing::{read_obj_file, read_tga_r8g8b8a8_srgb_file},
     renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout},
 };
@@ -189,7 +188,7 @@ impl Engine {
         let aspect = self.renderer.window.window.inner_size().width as f32 / self.renderer.window.window.inner_size().height as f32;
         camera.set_perspective_projection(60.0, aspect, 0.0, 100.0);
         // camera.set_view_target([20.0, 0.0, 0.0].into(), Vector3::zero(), Vector3::up());
-        camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::zero(), Vec3::up());
+        camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::new(), Vec3::up());
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {

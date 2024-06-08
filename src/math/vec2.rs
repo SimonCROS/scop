@@ -3,7 +3,10 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
-use crate::{macros::{forward_ref_binop, forward_ref_op_assign}, Vec3, Vec4};
+use crate::{
+    macros::{forward_ref_binop, forward_ref_op_assign},
+    Vec3, Vec4,
+};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Vec2 {
@@ -14,6 +17,10 @@ pub struct Vec2 {
 impl Vec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+
+    pub fn one() -> Self {
+        Self { x: 1., y: 1. }
     }
 
     pub fn left() -> Self {
