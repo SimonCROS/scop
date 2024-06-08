@@ -12,6 +12,10 @@ use super::{RendererDevice, ScopRenderPass, Shader};
 pub struct SimplePushConstantData {
     pub model_matrix: Mat4,
     pub normal_matrix: Mat3,
+    pub dummy0: f32,
+    pub dummy1: f32,
+    pub dummy2: f32,
+    pub flat_texture_interpolation: f32,
 }
 
 #[derive(Copy, Clone)]

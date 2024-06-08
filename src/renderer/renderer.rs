@@ -38,6 +38,7 @@ pub struct Renderer {
     pub graphic_command_pools: Vec<ScopCommandPool>,
     pub camera_buffers: Vec<ScopBuffer>,
     pub frame_count: u32,
+    pub flat_texture_interpolation: f32,
 }
 
 impl Renderer {
@@ -156,13 +157,14 @@ impl Renderer {
             graphic_command_pools,
             camera_buffers,
             frame_count: 0,
+            flat_texture_interpolation: 0.
         })
     }
 
     pub fn handle_draw_request(
         &mut self,
         camera: &Camera,
-        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
+        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>
     ) -> Result<()> {
         self.frame_count += 1;
 
@@ -182,20 +184,6 @@ impl Renderer {
 
         let command_pool = &self.graphic_command_pools[image_index as usize];
         let command_buffer = command_pool.get_command_buffer(0);
-
-        // let buffer_barrier = BufferMemoryBarrier2::builder()
-        //     .src_access_mask(AccessFlags2::HOST_WRITE)
-        //     .dst_access_mask(AccessFlags2::SHADER_READ)
-        //     .src_queue_family_index(QUEUE_FAMILY_IGNORED)
-        //     .dst_queue_family_index(QUEUE_FAMILY_IGNORED)
-        //     .buffer(vertex_buffer.buffer)
-        //     .offset(0)
-        //     .size(WHOLE_SIZE);
-        // let dependency_info = DependencyInfo::builder()
-        //     .buffer_memory_barriers(slice::from_ref(&buffer_barrier));
-        // unsafe {
-        //     self.main_device.logical_device.cmd_pipeline_barrier2(command_buffer, &dependency_info)
-        // };
 
         self.main_device.begin_command_buffer(command_buffer)?;
         self.defaut_render_pass.begin(command_buffer, image_index);
@@ -265,6 +253,10 @@ impl Renderer {
                 let push = SimplePushConstantData {
                     model_matrix: game_object.transform.mat(),
                     normal_matrix: game_object.transform.normal_matrix(),
+                    dummy0: 0.0,
+                    dummy1: 0.0,
+                    dummy2: 0.0,
+                    flat_texture_interpolation: self.flat_texture_interpolation,
                 };
 
                 unsafe {

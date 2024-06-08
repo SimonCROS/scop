@@ -185,7 +185,8 @@ impl Engine {
         }
 
         let mut camera = Camera::empty();
-        let aspect = self.renderer.window.window.inner_size().width as f32 / self.renderer.window.window.inner_size().height as f32;
+        let aspect = self.renderer.window.window.inner_size().width as f32
+            / self.renderer.window.window.inner_size().height as f32;
         camera.set_perspective_projection(60.0, aspect, 0.0, 100.0);
         // camera.set_view_target([20.0, 0.0, 0.0].into(), Vector3::zero(), Vector3::up());
         camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::default(), Vec3::up());
@@ -194,10 +195,13 @@ impl Engine {
         RendererWindow::run(event_loop, || {
             self.renderer
                 .handle_draw_request(&camera, &self.game_objects)?;
+
+            self.renderer.flat_texture_interpolation = ((std::f32::consts::PI / 200.) * (self.renderer.frame_count % 200) as f32).sin();
+
             let yaw =
                 (std::f32::consts::PI * 2f32 / 420f32) * (self.renderer.frame_count % 420) as f32;
-            let roll =
-                (std::f32::consts::PI * 2f32 / 840f32) * (self.renderer.frame_count % 840) as f32;
+            // let roll =
+            //     (std::f32::consts::PI * 2f32 / 840f32) * (self.renderer.frame_count % 840) as f32;
             let roll = 0f32;
             self.game_objects.values_mut().for_each(|e| {
                 e.borrow_mut().transform.rotation = [0., yaw, roll].into();
