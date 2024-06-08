@@ -10,22 +10,22 @@ use ash::vk::{
 };
 
 use crate::{
-    math::{Vector2, Vector3},
+    math::{Vec2, Vec3},
     renderer::{RendererDevice, ScopBuffer},
 };
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Vertex {
-    pub position: Vector3,
-    pub color: Vector3,
-    pub normal: Vector3,
-    pub uv: Vector2,
+    pub position: Vec3,
+    pub color: Vec3,
+    pub normal: Vec3,
+    pub uv: Vec2,
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct BoundingBox {
-    pub min: Vector3,
-    pub max: Vector3,
+    pub min: Vec3,
+    pub max: Vec3,
 }
 
 pub struct Mesh {
@@ -205,15 +205,15 @@ impl<'a> MeshBuilder<'a> {
 }
 
 impl BoundingBox {
-    pub fn get_middle_point(&self) -> Vector3 {
+    pub fn get_middle_point(&self) -> Vec3 {
         self.min + (self.max - self.min) / 2.
     }
 }
 
 impl From<&[Vertex]> for BoundingBox {
     fn from(vertices: &[Vertex]) -> Self {
-        let mut min = Vector3::from([f32::MAX, f32::MAX, f32::MAX]);
-        let mut max = Vector3::from([f32::MIN, f32::MIN, f32::MIN]);
+        let mut min = Vec3::from([f32::MAX, f32::MAX, f32::MAX]);
+        let mut max = Vec3::from([f32::MIN, f32::MIN, f32::MIN]);
 
         for vert in vertices {
             for i in 0..3 {

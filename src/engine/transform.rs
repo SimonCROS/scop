@@ -1,17 +1,17 @@
 use matrix::traits::{Dot, One};
 
-use crate::math::{Matrix3, Matrix4, Vector3};
+use crate::math::{Matrix3, Matrix4, Vec3};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Transform {
-    pub pivot: Vector3,
-    pub translation: Vector3,
-    pub scale: Vector3,
-    pub rotation: Vector3,
+    pub pivot: Vec3,
+    pub translation: Vec3,
+    pub scale: Vec3,
+    pub rotation: Vec3,
 }
 
 impl Transform {
-    fn rotate(rotation: Vector3) -> Matrix4 {
+    fn rotate(rotation: Vec3) -> Matrix4 {
         let c3: f32 = rotation.z().cos();
         let s3: f32 = rotation.z().sin();
         let c2: f32 = rotation.x().cos();
@@ -37,7 +37,7 @@ impl Transform {
         ])
     }
 
-    fn scale(scale: Vector3) -> Matrix4 {
+    fn scale(scale: Vec3) -> Matrix4 {
         Matrix4::from([
             [scale.x(), 0.0f32, 0.0f32, 0.0f32],
             [0.0f32, scale.y(), 0.0f32, 0.0f32],
@@ -46,7 +46,7 @@ impl Transform {
         ])
     }
 
-    fn translate(translation: Vector3) -> Matrix4 {
+    fn translate(translation: Vec3) -> Matrix4 {
         Matrix4::from([
             [1.0f32, 0.0f32, 0.0f32, 0.0f32],
             [0.0f32, 1.0f32, 0.0f32, 0.0f32],
@@ -76,7 +76,7 @@ impl Transform {
         let s2: f32 = self.rotation.x().sin();
         let c1: f32 = self.rotation.y().cos();
         let s1: f32 = self.rotation.y().sin();
-        let inv_scale: Vector3 = Vector3::from([
+        let inv_scale: Vec3 = Vec3::from([
             1.0f32 / self.scale[0],
             1.0f32 / self.scale[1],
             1.0f32 / self.scale[2],
@@ -107,7 +107,7 @@ impl Default for Transform {
         Self {
             pivot: Default::default(),
             translation: Default::default(),
-            scale: Vector3::one(),
+            scale: Vec3::one(),
             rotation: Default::default(),
         }
     }

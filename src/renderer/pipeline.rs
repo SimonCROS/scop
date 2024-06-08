@@ -146,7 +146,7 @@ impl RendererPipeline {
             .max_depth_bounds(1f32)
             .stencil_test_enable(false);
 
-        let pipeline_infos = [vk::GraphicsPipelineCreateInfo::builder()
+        let pipeline_infos = [*vk::GraphicsPipelineCreateInfo::builder()
             .stages(shader_stages)
             .vertex_input_state(&vertex_input_info)
             .input_assembly_state(&input_assembly_info)
@@ -157,8 +157,7 @@ impl RendererPipeline {
             .layout(pipeline_layout)
             .render_pass(render_pass)
             .depth_stencil_state(&depth_stencil_state)
-            .subpass(0)
-            .build()];
+            .subpass(0)];
 
         let pipeline = unsafe {
             device

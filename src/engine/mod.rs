@@ -15,7 +15,7 @@ use matrix::traits::{One, Zero};
 pub use transform::*;
 
 use crate::{
-    math::{Left, Right, Up, Vector3},
+    math::{Left, Right, Up, Vec3},
     parsing::{read_obj_file, read_tga_r8g8b8a8_srgb_file},
     renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout},
 };
@@ -108,7 +108,7 @@ impl Engine {
 
         let shared_42 = Transform {
             pivot: mesh_42.bounding_box.get_middle_point(),
-            scale: Vector3::one() * 2.,
+            scale: Vec3::one() * 2.,
             ..Default::default()
         };
 
@@ -119,14 +119,14 @@ impl Engine {
                 .material(material_instance_mars.clone())
                 .transform(shared_42)
                 .build();
-            go.borrow_mut().transform.translation = Vector3::from([7., 7., 0.]);
+            go.borrow_mut().transform.translation = Vec3::from([7., 7., 0.]);
 
             let go = GameObject::builder(self)
                 .name("Hello World")
                 .mesh(mesh_teapot.clone())
                 .material(material_instance_mars.clone())
                 .build();
-            go.borrow_mut().transform.translation = Vector3::right() * 7.;
+            go.borrow_mut().transform.translation = Vec3::right() * 7.;
 
             let go = GameObject::builder(self)
                 .name("Hello World")
@@ -134,7 +134,7 @@ impl Engine {
                 .material(material_instance_mars.clone())
                 .transform(shared_42)
                 .build();
-            go.borrow_mut().transform.translation = Vector3::from([7., -7., 0.]);
+            go.borrow_mut().transform.translation = Vec3::from([7., -7., 0.]);
         }
 
         {
@@ -143,7 +143,7 @@ impl Engine {
                 .mesh(mesh_teapot.clone())
                 .material(material_instance_ponies.clone())
                 .build();
-            go.borrow_mut().transform.translation = Vector3::from([0., 7., 0.]);
+            go.borrow_mut().transform.translation = Vec3::from([0., 7., 0.]);
 
             GameObject::builder(self)
                 .name("Hello World")
@@ -157,7 +157,7 @@ impl Engine {
                 .mesh(mesh_teapot.clone())
                 .material(material_instance_ponies.clone())
                 .build();
-            go.borrow_mut().transform.translation = Vector3::from([0., -7., 0.]);
+            go.borrow_mut().transform.translation = Vec3::from([0., -7., 0.]);
         }
 
         {
@@ -167,14 +167,14 @@ impl Engine {
                 .material(material_instance_earth.clone())
                 .transform(shared_42)
                 .build();
-            go.borrow_mut().transform.translation = Vector3::from([-7., 7., 0.]);
+            go.borrow_mut().transform.translation = Vec3::from([-7., 7., 0.]);
 
             let go = GameObject::builder(self)
                 .name("Hello World")
                 .mesh(mesh_teapot.clone())
                 .material(material_instance_earth.clone())
                 .build();
-            go.borrow_mut().transform.translation = Vector3::left() * 7.;
+            go.borrow_mut().transform.translation = Vec3::left() * 7.;
 
             let go = GameObject::builder(self)
                 .name("Hello World")
@@ -182,14 +182,14 @@ impl Engine {
                 .material(material_instance_earth.clone())
                 .transform(shared_42)
                 .build();
-            go.borrow_mut().transform.translation = Vector3::from([-7., -7., 0.]);
+            go.borrow_mut().transform.translation = Vec3::from([-7., -7., 0.]);
         }
 
         let mut camera = Camera::empty();
         let aspect = self.renderer.window.window.inner_size().width as f32 / self.renderer.window.window.inner_size().height as f32;
         camera.set_perspective_projection(60.0, aspect, 0.0, 100.0);
         // camera.set_view_target([20.0, 0.0, 0.0].into(), Vector3::zero(), Vector3::up());
-        camera.set_view_target([0.0, 0.0, -20.0].into(), Vector3::zero(), Vector3::up());
+        camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::zero(), Vec3::up());
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, || {
