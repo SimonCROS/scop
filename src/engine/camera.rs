@@ -30,10 +30,9 @@ impl Camera {
     pub fn set_perspective_projection(&mut self, fovy: f32, aspect: f32, near: f32, far: f32) {
         assert!((aspect - f32::EPSILON).abs() > 0f32);
 
-        let fovy_rad = (std::f32::consts::PI / 180.) * fovy;
-        let tan_half_fovy = (fovy_rad / 2f32).tan();
-        self.projection_matrix[0][0] = 1f32 / (aspect * tan_half_fovy);
-        self.projection_matrix[1][1] = 1f32 / (tan_half_fovy);
+        let half_fovy = (fovy / 2f32).tan();
+        self.projection_matrix[0][0] = 1f32 / (aspect * half_fovy);
+        self.projection_matrix[1][1] = 1f32 / (half_fovy);
         self.projection_matrix[2][2] = far / (far - near);
         self.projection_matrix[2][3] = 1f32;
         self.projection_matrix[3][2] = -(far * near) / (far - near);

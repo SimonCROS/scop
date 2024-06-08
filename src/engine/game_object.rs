@@ -2,12 +2,12 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use crate::renderer::MaterialInstanceRef;
 
-use super::{mesh::Mesh, Component, Engine, Transform};
+use super::{mesh::Mesh, Component, Engine, FrameInfo, Transform};
 
 pub struct GameObject {
     pub name: Option<String>,
     pub transform: Transform,
-    pub components: HashSet<Box<dyn Component>>,
+    pub components: Vec<Box<dyn Component>>,
     pub mesh: Option<Rc<Mesh>>,
     pub material: Option<MaterialInstanceRef>,
 }
@@ -16,7 +16,7 @@ pub struct GameObjectBuilder<'a> {
     engine: &'a mut Engine,
     name: Option<&'a str>,
     transform: Option<Transform>,
-    components: HashSet<Box<dyn Component>>,
+    components: Vec<Box<dyn Component>>,
     mesh: Option<Rc<Mesh>>,
     material: Option<MaterialInstanceRef>,
 }
@@ -27,9 +27,16 @@ impl GameObject {
             engine,
             name: None,
             transform: None,
-            components: HashSet::new(),
+            components: Vec::new(),
             mesh: None,
             material: None,
+        }
+    }
+
+    pub fn update(&mut self, frame_info: &FrameInfo)
+    {
+        for component in &mut self.components.iter_mut() {
+            component.update(frame_info);
         }
     }
 }

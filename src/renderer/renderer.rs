@@ -157,19 +157,22 @@ impl Renderer {
             graphic_command_pools,
             camera_buffers,
             frame_count: 0,
-            flat_texture_interpolation: 0.
+            flat_texture_interpolation: 0.,
         })
     }
 
-    pub fn handle_draw_request(
+    pub fn handle_draw_request<F: Fn(u32)>(
         &mut self,
         camera: &Camera,
-        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>
+        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
+        update_hook: F,
     ) -> Result<()> {
         self.frame_count += 1;
 
         let (image_index, image_available, rendering_finished, may_begin_drawing) =
             self.swapchain.next_image()?;
+
+        update_hook(image_index);
 
         let camera_data = ScopGpuCameraData {
             projection: *camera.get_projection(),
