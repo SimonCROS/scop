@@ -1,6 +1,7 @@
 mod debug;
 mod device;
 mod material;
+mod mesh;
 mod pipeline;
 mod renderer;
 mod scop_buffer;
@@ -14,11 +15,13 @@ mod scop_render_pass;
 mod scop_swapchain;
 mod scop_texture2d;
 mod shader;
+mod vertex;
 mod window;
 
 pub use debug::RendererDebug;
 pub use device::{QueueFamily, QueueFamilyId, RendererDevice};
-pub use material::{Material, MaterialRef, MaterialInstance, MaterialInstanceRef};
+pub use material::{Material, MaterialInstance};
+pub use mesh::Mesh;
 pub use pipeline::{
     RendererPipeline, ScopGpuCameraData, ScopPipelineBuilder, SimplePushConstantData,
 };
@@ -34,4 +37,5 @@ pub use scop_render_pass::ScopRenderPass;
 pub use scop_swapchain::ScopSwapchain;
 pub use scop_texture2d::ScopTexture2D;
 pub use shader::Shader;
+pub use vertex::Vertex;
 pub use window::RendererWindow;

@@ -1,12 +1,13 @@
 #![feature(lint_reasons)]
 
+use anyhow::Result;
+use engine::Engine;
+
 mod engine;
 mod parsing;
 mod renderer;
 mod utils;
-
-use anyhow::Result;
-use engine::Engine;
+mod app;
 
 fn main() -> Result<()> {
     let mut engine = Engine::new()?;

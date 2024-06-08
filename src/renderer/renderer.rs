@@ -12,12 +12,14 @@ use ash::{
     vk::{self, CommandPoolCreateFlags, PipelineStageFlags, QueueFlags, ShaderStageFlags},
 };
 
-use crate::engine::{camera::Camera, mesh::Mesh, GameObject};
+use crate::engine::{camera::Camera, GameObject};
 
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    Material, MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter, ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData
+    Material, MaterialInstance, Mesh, RendererDebug, RendererDevice, RendererWindow, ScopBuffer,
+    ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter,
+    ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData,
 };
 
 pub struct Renderer {
@@ -161,7 +163,7 @@ impl Renderer {
         })
     }
 
-    pub fn handle_draw_request<F: Fn(u32)>(
+    pub fn handle_draw_request<F: Fn(&Renderer, u32)>(
         &mut self,
         camera: &Camera,
         game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
@@ -172,7 +174,7 @@ impl Renderer {
         let (image_index, image_available, rendering_finished, may_begin_drawing) =
             self.swapchain.next_image()?;
 
-        update_hook(image_index);
+        update_hook(&self, image_index);
 
         let camera_data = ScopGpuCameraData {
             projection: *camera.get_projection(),
@@ -222,7 +224,7 @@ impl Renderer {
         image_index: u32,
     ) {
         let mut previous_mesh_ptr: *const Mesh = std::ptr::null();
-        let mut previous_material_ptr: *const Material = std::ptr::null();
+        let mut previous_pipeline: vk::Pipeline = Default::default();
         let mut previous_material_instance_ptr: *const MaterialInstance = std::ptr::null();
 
         for go in game_objects.values() {
@@ -231,19 +233,18 @@ impl Renderer {
             if let Some(mesh) = &game_object.mesh {
                 let material_instance = game_object.material.as_ref().unwrap();
 
-                if previous_material_ptr != Rc::as_ptr(&material_instance.material) {
-                    previous_material_ptr = Rc::as_ptr(&material_instance.material);
+                if previous_pipeline != material_instance.pipeline.pipeline {
+                    previous_pipeline = material_instance.pipeline.pipeline;
 
                     material_instance
-                        .material
                         .pipeline
                         .bind(command_buffer, vk::PipelineBindPoint::GRAPHICS);
                 }
 
-                if previous_material_instance_ptr != Rc::as_ptr(material_instance) {
-                    previous_material_instance_ptr = Rc::as_ptr(material_instance);
+                if previous_material_instance_ptr != material_instance.pipeline.pipeline {
+                    previous_material_instance_ptr = material_instance.pipeline.pipeline;
 
-                    material_instance.material.pipeline.bind_descriptor_sets(
+                    material_instance.pipeline.bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         &[
@@ -265,7 +266,7 @@ impl Renderer {
                 unsafe {
                     self.main_device.logical_device.cmd_push_constants(
                         command_buffer,
-                        material_instance.material.pipeline.pipeline_layout,
+                        material_instance.pipeline.pipeline_layout,
                         ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
                         0,
                         crate::utils::any_as_u8_slice(&push),

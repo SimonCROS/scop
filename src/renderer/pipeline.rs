@@ -5,9 +5,7 @@ use anyhow::{ensure, Result};
 use ash::vk::{self, PushConstantRange, ShaderStageFlags};
 use math::{Mat3, Mat4};
 
-use crate::engine::mesh::Vertex;
-
-use super::{RendererDevice, ScopRenderPass, Shader};
+use super::{RendererDevice, ScopRenderPass, Shader, Vertex};
 
 pub struct SimplePushConstantData {
     pub model_matrix: Mat4,
@@ -33,8 +31,8 @@ pub struct RendererPipeline {
 pub struct ScopPipelineBuilder<'a> {
     device: Rc<RendererDevice>,
     render_pass: Option<&'a ScopRenderPass>,
-    vert_shader: Option<Shader>,
-    frag_shader: Option<Shader>,
+    vert_shader: Option<&'a Shader>,
+    frag_shader: Option<&'a Shader>,
     set_layouts: &'a [vk::DescriptorSetLayout],
     extent: Option<vk::Extent2D>,
 }
@@ -225,12 +223,12 @@ impl<'a> ScopPipelineBuilder<'a> {
         self
     }
 
-    pub fn vert_shader(mut self, shader: Shader) -> Self {
+    pub fn vert_shader(mut self, shader: &'a Shader) -> Self {
         self.vert_shader = Some(shader);
         self
     }
 
-    pub fn frag_shader(mut self, shader: Shader) -> Self {
+    pub fn frag_shader(mut self, shader: &'a Shader) -> Self {
         self.frag_shader = Some(shader);
         self
     }

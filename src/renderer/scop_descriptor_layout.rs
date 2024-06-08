@@ -34,6 +34,14 @@ impl ScopDescriptorSetLayout {
 }
 
 impl<'a> ScopDescriptorSetLayoutBuilder<'a> {
+    pub fn add_texture_binding(mut self, binding: u32) -> Self {
+        self.add_binding(
+            binding,
+            vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            vk::ShaderStageFlags::FRAGMENT,
+        )
+    }
+
     pub fn add_binding(
         mut self,
         binding: u32,

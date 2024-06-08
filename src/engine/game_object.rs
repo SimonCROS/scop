@@ -1,15 +1,15 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
-use crate::renderer::MaterialInstanceRef;
+use crate::renderer::{MaterialInstance, Mesh};
 
-use super::{mesh::Mesh, Component, Engine, FrameInfo, Transform};
+use super::{Component, Engine, FrameInfo, Transform};
 
 pub struct GameObject {
     pub name: Option<String>,
     pub transform: Transform,
     pub components: Vec<Box<dyn Component>>,
     pub mesh: Option<Rc<Mesh>>,
-    pub material: Option<MaterialInstanceRef>,
+    pub material: Option<MaterialInstance>,
 }
 
 pub struct GameObjectBuilder<'a> {
@@ -18,7 +18,7 @@ pub struct GameObjectBuilder<'a> {
     transform: Option<Transform>,
     components: Vec<Box<dyn Component>>,
     mesh: Option<Rc<Mesh>>,
-    material: Option<MaterialInstanceRef>,
+    material: Option<MaterialInstance>,
 }
 
 impl GameObject {
@@ -33,8 +33,7 @@ impl GameObject {
         }
     }
 
-    pub fn update(&mut self, frame_info: &FrameInfo)
-    {
+    pub fn update(&mut self, frame_info: &FrameInfo) {
         for component in &mut self.components.iter_mut() {
             component.update(frame_info);
         }
@@ -57,7 +56,7 @@ impl<'a> GameObjectBuilder<'a> {
         self
     }
 
-    pub fn material(mut self, material: MaterialInstanceRef) -> Self {
+    pub fn material(mut self, material: MaterialInstance) -> Self {
         self.material = Some(material);
         self
     }

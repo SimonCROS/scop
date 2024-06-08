@@ -1,46 +1,36 @@
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 
 use anyhow::{Ok, Result};
 use ash::vk::{self};
 
-use crate::{
-    parsing::read_spv_file,
-    renderer::{Renderer, RendererPipeline, ScopDescriptorSetLayout, Shader},
-};
+use crate::renderer::{Renderer, RendererPipeline, ScopDescriptorSetLayout, Shader};
 
 use super::ScopDescriptorWriter;
 
-pub struct Material {
-    pub pipeline: RendererPipeline,
-    pub material_sets_layouts: Vec<ScopDescriptorSetLayout>,
+struct MaterialContent {
+    pub(crate) pipeline: RendererPipeline,
+    pub(crate) material_sets_layouts: Vec<ScopDescriptorSetLayout>,
     vk_material_sets_layouts: Vec<vk::DescriptorSetLayout>,
 }
 
-pub type MaterialRef = Rc<Material>;
-
-pub struct MaterialInstance {
-    pub material: MaterialRef,
-    pub material_sets: Vec<vk::DescriptorSet>,
+struct MaterialInstanceContent {
+    material: Material,
+    pub(crate) material_sets: Vec<vk::DescriptorSet>,
 }
 
-pub type MaterialInstanceRef = Rc<MaterialInstance>;
+#[derive(Clone)]
+pub struct Material(Rc<MaterialContent>);
+
+#[derive(Clone)]
+pub struct MaterialInstance(Rc<MaterialInstanceContent>);
 
 impl Material {
     pub fn new(
         renderer: &Renderer,
         material_sets_layouts: Vec<ScopDescriptorSetLayout>,
-    ) -> Result<MaterialRef> {
-        let vert_shader = Shader::from_code(
-            &renderer.main_device,
-            &read_spv_file("./shaders/default.vert.spv")?,
-            vk::ShaderStageFlags::VERTEX,
-        )?;
-        let frag_shader = Shader::from_code(
-            &renderer.main_device,
-            &read_spv_file("./shaders/default.frag.spv")?,
-            vk::ShaderStageFlags::FRAGMENT,
-        )?;
-
+        vert_shader: &Shader,
+        frag_shader: &Shader,
+    ) -> Result<Self> {
         let vk_material_sets_layouts = material_sets_layouts
             .iter()
             .map(|e| e.set_layout)
@@ -62,21 +52,19 @@ impl Material {
 
         let pipeline = pipeline?;
 
-        Ok(MaterialRef::new(Self {
+        Ok(Self(Rc::new(MaterialContent {
             pipeline,
             material_sets_layouts,
             vk_material_sets_layouts,
-        }))
+        })))
     }
-}
 
-impl MaterialInstance {
-    pub fn instanciate(renderer: &Renderer, material: MaterialRef) -> Result<MaterialInstanceRef> {
+    pub fn instanciate(&self, renderer: &Renderer) -> Result<MaterialInstance> {
         let mut material_sets = Vec::with_capacity(renderer.swapchain.image_count);
 
         let allocate_info = *vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(renderer.global_descriptor_pool.descriptor_pool)
-            .set_layouts(&material.vk_material_sets_layouts);
+            .set_layouts(&self.vk_material_sets_layouts);
 
         for _ in 0..renderer.swapchain.image_count {
             material_sets.extend(unsafe {
@@ -87,13 +75,15 @@ impl MaterialInstance {
             });
         }
 
-        Ok(MaterialInstanceRef::new(Self {
-            material,
+        Ok(MaterialInstance(Rc::new(MaterialInstanceContent {
+            material: self.clone(),
             material_sets,
-        }))
+        })))
     }
+}
 
-    pub fn get_writer_for(&self, set_layout_index: usize, index: usize) -> ScopDescriptorWriter {
+impl MaterialInstance {
+    pub fn writer_for_index(&self, set_layout_index: usize, index: usize) -> ScopDescriptorWriter {
         let mut writer = ScopDescriptorWriter::new(
             &self.material.pipeline.device,
             &self.material.material_sets_layouts[set_layout_index],
@@ -102,12 +92,36 @@ impl MaterialInstance {
         writer
     }
 
-    pub fn get_writer_for_all(&self, set_layout_index: usize) -> ScopDescriptorWriter {
+    pub fn writer(&self, set_layout_index: usize) -> ScopDescriptorWriter {
         let mut writer = ScopDescriptorWriter::new(
             &self.material.pipeline.device,
             &self.material.material_sets_layouts[set_layout_index],
         );
         writer.descriptors(&self.material_sets);
         writer
+    }
+}
+
+impl Deref for MaterialInstanceContent {
+    type Target = Material;
+
+    fn deref(&self) -> &Self::Target {
+        &self.material
+    }
+}
+
+impl Deref for Material {
+    type Target = MaterialContent;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Deref for MaterialInstance {
+    type Target = MaterialInstanceContent;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

@@ -8,7 +8,7 @@ use std::{
 use anyhow::{ensure, Result};
 use ash::vk;
 
-use crate::renderer::{RendererDevice, ScopCommandPool, ScopTexture2D};
+use crate::{engine::Engine, renderer::{RendererDevice, ScopCommandPool, ScopTexture2D}};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(packed)]
@@ -39,11 +39,7 @@ struct TgaHeader {
     image: TgaImageSpecifications,
 }
 
-pub fn read_tga_r8g8b8a8_srgb_file(
-    device: Rc<RendererDevice>,
-    command_pool: &ScopCommandPool,
-    path: &'static str,
-) -> Result<ScopTexture2D> {
+pub fn read_tga_r8g8b8a8_srgb_file(engine: &Engine, path: &'static str) -> Result<ScopTexture2D> {
     let mut file = File::open(path)?;
     let mut tga_header = TgaHeader::default();
     let tga_header_size = size_of::<TgaHeader>();
@@ -110,8 +106,8 @@ pub fn read_tga_r8g8b8a8_srgb_file(
     // }
 
     ScopTexture2D::new(
-        device,
-        command_pool,
+        engine.renderer.main_device.clone(),
+        &engine.renderer.graphic_command_pools[0],
         &bytes,
         tga_header.image.width as u32,
         tga_header.image.height as u32,

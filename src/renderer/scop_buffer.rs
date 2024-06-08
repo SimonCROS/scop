@@ -51,7 +51,7 @@ impl ScopBuffer {
         !self.mapped.is_null()
     }
 
-    pub fn map(&mut self, size: vk::DeviceSize, offset: vk::DeviceSize) -> Result<()> {
+    pub fn map(&mut self,  size: vk::DeviceSize, offset: vk::DeviceSize) -> Result<()> {
         assert!(!self.is_mapped());
         unsafe {
             self.mapped = self.device.logical_device.map_memory(

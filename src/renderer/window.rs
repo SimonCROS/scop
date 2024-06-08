@@ -83,7 +83,7 @@ impl RendererWindow {
         }
     }
 
-    pub fn run<F: FnMut() -> Result<()>>(
+    pub fn run<F: FnMut(&WinitInputHelper) -> Result<()>>(
         event_loop: EventLoop<()>,
         input: &mut WinitInputHelper,
         mut draw_request: F,
@@ -102,7 +102,7 @@ impl RendererWindow {
                     return;
                 }
 
-                match draw_request() {
+                match draw_request(input) {
                     Ok(_) => (),
                     Err(e) => {
                         eprint!("{}", e);

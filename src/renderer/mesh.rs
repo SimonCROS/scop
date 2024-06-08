@@ -1,30 +1,12 @@
-use std::{
-    mem::{self, offset_of, size_of},
-    rc::Rc,
-};
+use std::{mem::size_of, rc::Rc};
 
 use anyhow::{ensure, Context, Ok, Result};
-use ash::vk::{
-    self, BufferUsageFlags, CommandBuffer, MemoryPropertyFlags, VertexInputAttributeDescription,
-    VertexInputBindingDescription, WHOLE_SIZE,
-};
-use math::{Vec2, Vec3};
+use ash::vk::{self, BufferUsageFlags, CommandBuffer, MemoryPropertyFlags, WHOLE_SIZE};
+use math::BoundingBox;
 
 use crate::renderer::{RendererDevice, ScopBuffer};
 
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
-pub struct Vertex {
-    pub position: Vec3,
-    pub color: Vec3,
-    pub normal: Vec3,
-    pub uv: Vec2,
-}
-
-#[derive(Copy, Clone, Default, Debug, PartialEq)]
-pub struct BoundingBox {
-    pub min: Vec3,
-    pub max: Vec3,
-}
+use super::Vertex;
 
 pub struct Mesh {
     device: Rc<RendererDevice>,
@@ -38,45 +20,6 @@ pub struct MeshBuilder<'a> {
     device: Rc<RendererDevice>,
     vertices: Option<&'a [Vertex]>,
     indices: Option<&'a [u32]>,
-}
-
-impl Vertex {
-    pub fn get_vertex_input_attribute_descriptions() -> Vec<VertexInputAttributeDescription> {
-        vec![
-            vk::VertexInputAttributeDescription {
-                location: 0,
-                binding: 0,
-                format: vk::Format::R32G32B32_SFLOAT,
-                offset: offset_of!(Vertex, position) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 1,
-                binding: 0,
-                format: vk::Format::R32G32B32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 2,
-                binding: 0,
-                format: vk::Format::R32G32B32_SFLOAT,
-                offset: offset_of!(Vertex, normal) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 3,
-                binding: 0,
-                format: vk::Format::R32G32_SFLOAT,
-                offset: offset_of!(Vertex, uv) as u32,
-            },
-        ]
-    }
-
-    pub fn get_vertex_input_binding_descriptions() -> Vec<VertexInputBindingDescription> {
-        vec![vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: mem::size_of::<Vertex>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }]
-    }
 }
 
 impl Mesh {
@@ -200,36 +143,10 @@ impl<'a> MeshBuilder<'a> {
 
         Ok(Mesh {
             device: self.device,
-            bounding_box: BoundingBox::from(vertices),
+            bounding_box: Vertex::get_bounding_box(vertices),
             // vertices: vertices.to_vec(),
             vertex_buffer,
             index_buffer,
         })
-    }
-}
-
-impl BoundingBox {
-    pub fn get_middle_point(&self) -> Vec3 {
-        self.min + (self.max - self.min) / 2.
-    }
-}
-
-impl From<&[Vertex]> for BoundingBox {
-    fn from(vertices: &[Vertex]) -> Self {
-        let mut min = Vec3::from([f32::MAX, f32::MAX, f32::MAX]);
-        let mut max = Vec3::from([f32::MIN, f32::MIN, f32::MIN]);
-
-        for vert in vertices {
-            for i in 0..3 {
-                if vert.position[i] < min[i] {
-                    min[i] = vert.position[i];
-                }
-                if vert.position[i] > max[i] {
-                    max[i] = vert.position[i];
-                }
-            }
-        }
-
-        Self { min, max }
     }
 }
