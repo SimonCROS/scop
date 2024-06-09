@@ -2,13 +2,12 @@ use std::{
     fs::File,
     io::{Read, Seek},
     mem::size_of,
-    rc::Rc,
 };
 
 use anyhow::{ensure, Result};
 use ash::vk;
 
-use crate::{engine::Engine, renderer::{RendererDevice, ScopCommandPool, ScopTexture2D}};
+use crate::{engine::Engine, renderer::ScopTexture2D};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(packed)]

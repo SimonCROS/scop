@@ -3,6 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::rc::Rc;
 
 use anyhow::{ensure, Context, Result};
+use math::Vec2;
 
 use crate::engine::mesh::{Mesh, Vertex};
 use crate::engine::Engine;
@@ -19,6 +20,7 @@ fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&
 pub fn read_obj_file(engine: &Engine, path: &'static str) -> Result<Rc<Mesh>> {
     let mut object_name = String::new();
     let mut vertices = Vec::<Vertex>::new();
+    let mut uvs = Vec::<Vec2>::new();
     let mut indices = Vec::<u32>::new();
     let mut indices_group: [u32; 3] = Default::default();
 
@@ -52,9 +54,21 @@ pub fn read_obj_file(engine: &Engine, path: &'static str) -> Result<Rc<Mesh>> {
             continue;
         }
 
+        if let Some(content) = get_content_of(&line, "vt ")? {
+            let mut values = content.splitn(3, ' ').map(str::parse::<f32>);
+
+            let mut uv = Vec2::default();
+            uv[0] = values.next().context("Not enough values for uv")??;
+            uv[1] = values.next().context("Not enough values for uv")??;
+            ensure!(values.next().is_none(), "Too many parts in uv");
+            uvs.push(uv);
+
+            continue;
+        }
+
         if let Some(content) = get_content_of(&line, "f ")? {
             let mut values = content.split(' ').map(str::parse::<u32>);
-
+//content.splitn(3, ' ').map(|p| p.split('/').map(str::parse::<f32>));
             indices_group[0] = values.next().context("Not enough values for index")?? - 1;
             indices_group[1] = values.next().context("Not enough values for index")?? - 1;
             indices_group[2] = values.next().context("Not enough values for index")?? - 1;

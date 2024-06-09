@@ -38,6 +38,7 @@ impl App {
         let texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
 
         let texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
+        // let texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
 
         // --------------------
         // Shaders
@@ -187,6 +188,22 @@ impl App {
                 self.current_roll -= 0.02;
                 self.last_frame_move = engine.renderer.frame_count;
             }
+            // if input.key_held_logical(Key::Character(&"a")) {
+            //     self.current_x -= 0.02;
+            //     self.last_frame_move = engine.renderer.frame_count;
+            // }
+            // if input.key_held_logical(Key::Named(NamedKey::ArrowRight)) {
+            //     self.current_yaw += 0.02;
+            //     self.last_frame_move = engine.renderer.frame_count;
+            // }
+            // if input.key_held_logical(Key::Named(NamedKey::ArrowUp)) {
+            //     self.current_roll += 0.02;
+            //     self.last_frame_move = engine.renderer.frame_count;
+            // }
+            // if input.key_held_logical(Key::Named(NamedKey::ArrowDown)) {
+            //     self.current_roll -= 0.02;
+            //     self.last_frame_move = engine.renderer.frame_count;
+            // }
 
             if input.key_pressed_logical(Key::Character(&"t")) {
                 self.texture_target_fade = if self.texture_target_fade == 1. {

@@ -94,8 +94,7 @@ impl RendererWindow {
             // Pass every event to the WinitInputHelper.
             // It will return true when the last event has been processed and it is time to run your application logic.
             if input.update(&event) {
-                if input.key_pressed_logical(Key::Character(&"q"))
-                    || input.key_pressed_logical(Key::Named(NamedKey::Escape))
+                if input.key_pressed_logical(Key::Named(NamedKey::Escape))
                     || input.close_requested()
                     || input.destroyed()
                 {

@@ -23,7 +23,7 @@ void main() {
     vec4 position_world = push.model_matrix * vec4(i_pos, 1.0);
     gl_Position = camera.projection * camera.view * position_world;
 
-    float grey = mod(gl_VertexIndex * 21.42, 50) / 100;
+    float grey = mod(gl_VertexIndex * gl_VertexIndex * 7.1, 50) / 100;
     o_color = vec3(grey, grey, grey);
     o_uv = i_uv;
 }
