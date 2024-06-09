@@ -3,10 +3,7 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk::{self};
 
-use crate::{
-    parsing::read_spv_file,
-    renderer::{Renderer, RendererPipeline, ScopDescriptorSetLayout, Shader},
-};
+use crate::renderer::{Renderer, RendererPipeline, ScopDescriptorSetLayout, Shader};
 
 use super::ScopDescriptorWriter;
 
@@ -29,18 +26,9 @@ impl Material {
     pub fn new(
         renderer: &Renderer,
         material_sets_layouts: Vec<ScopDescriptorSetLayout>,
+        vert_shader: &Shader,
+        frag_shader: &Shader,
     ) -> Result<MaterialRef> {
-        let vert_shader = Shader::from_code(
-            &renderer.main_device,
-            &read_spv_file("./shaders/default.vert.spv")?,
-            vk::ShaderStageFlags::VERTEX,
-        )?;
-        let frag_shader = Shader::from_code(
-            &renderer.main_device,
-            &read_spv_file("./shaders/default.frag.spv")?,
-            vk::ShaderStageFlags::FRAGMENT,
-        )?;
-
         let vk_material_sets_layouts = material_sets_layouts
             .iter()
             .map(|e| e.set_layout)
@@ -93,7 +81,7 @@ impl MaterialInstance {
         }))
     }
 
-    pub fn get_writer_for(&self, set_layout_index: usize, index: usize) -> ScopDescriptorWriter {
+    pub fn writer_index(&self, set_layout_index: usize, index: usize) -> ScopDescriptorWriter {
         let mut writer = ScopDescriptorWriter::new(
             &self.material.pipeline.device,
             &self.material.material_sets_layouts[set_layout_index],
@@ -102,7 +90,7 @@ impl MaterialInstance {
         writer
     }
 
-    pub fn get_writer_for_all(&self, set_layout_index: usize) -> ScopDescriptorWriter {
+    pub fn writer(&self, set_layout_index: usize) -> ScopDescriptorWriter {
         let mut writer = ScopDescriptorWriter::new(
             &self.material.pipeline.device,
             &self.material.material_sets_layouts[set_layout_index],

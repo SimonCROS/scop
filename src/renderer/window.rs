@@ -1,11 +1,15 @@
+use std::{cell::RefCell, rc::Rc};
+
 use anyhow::Result;
 use ash::{extensions::khr, vk};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::{
     dpi::LogicalSize,
     event_loop::EventLoop,
+    keyboard::{Key, KeyCode, NamedKey},
     window::{Window, WindowBuilder},
 };
+use winit_input_helper::WinitInputHelper;
 
 pub struct RendererWindow {
     pub event_loop: Option<EventLoop<()>>,
@@ -79,37 +83,34 @@ impl RendererWindow {
         }
     }
 
-    pub fn run<F: FnMut() -> Result<()>>(
+    pub fn run<F: FnMut(&WinitInputHelper) -> Result<()>>(
         event_loop: EventLoop<()>,
         mut draw_request: F,
     ) -> Result<()> {
+        let mut input = WinitInputHelper::new();
+
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
-        event_loop.run(move |event, elwt| match event {
-            winit::event::Event::WindowEvent {
-                event:
-                    winit::event::WindowEvent::CloseRequested
-                    | winit::event::WindowEvent::KeyboardInput {
-                        event:
-                            winit::event::KeyEvent {
-                                state: winit::event::ElementState::Pressed,
-                                logical_key:
-                                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape),
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            } => elwt.exit(),
-            winit::event::Event::NewEvents(winit::event::StartCause::Poll) => {
-                match draw_request() {
+        event_loop.run(move |event, elwt| {
+            // Pass every event to the WinitInputHelper.
+            // It will return true when the last event has been processed and it is time to run your application logic.
+            if input.update(&event) {
+                if input.key_pressed_logical(Key::Character(&"q"))
+                    || input.key_pressed_logical(Key::Named(NamedKey::Escape))
+                    || input.close_requested()
+                    || input.destroyed()
+                {
+                    elwt.exit();
+                    return;
+                }
+
+                match draw_request(&input) {
                     Ok(_) => (),
                     Err(e) => {
-                        dbg!(e);
+                        eprint!("{}", e);
                         elwt.exit();
                     }
                 }
             }
-            _ => (),
         })?;
 
         Ok(())

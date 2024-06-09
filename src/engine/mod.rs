@@ -1,5 +1,4 @@
 pub mod camera;
-mod components;
 mod game_object;
 pub mod mesh;
 mod transform;
@@ -9,10 +8,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use anyhow::Result;
 use ash::vk;
 use camera::Camera;
-pub use components::*;
 pub use game_object::*;
 use math::Vec3;
 pub use transform::*;
+use winit_input_helper::WinitInputHelper;
 
 use crate::{
     parsing::{read_obj_file, read_tga_r8g8b8a8_srgb_file},
@@ -24,7 +23,7 @@ pub type GameObjectId = u32;
 pub struct Engine {
     last_used_id: GameObjectId,
     pub game_objects: HashMap<GameObjectId, Rc<RefCell<GameObject>>>,
-    renderer: Renderer,
+    pub renderer: Renderer,
 }
 
 impl Engine {
@@ -45,145 +44,7 @@ impl Engine {
         go
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        let mesh_teapot = Rc::new(read_obj_file(
-            self.renderer.main_device.clone(),
-            "./resources/teapot2.obj",
-        )?);
-
-        let mesh_42 = Rc::new(read_obj_file(
-            self.renderer.main_device.clone(),
-            "./resources/42.obj",
-        )?);
-
-        let texture_earth = read_tga_r8g8b8a8_srgb_file(
-            self.renderer.main_device.clone(),
-            &self.renderer.graphic_command_pools[0],
-            "./textures/earth.tga",
-        )?;
-
-        let texture_mars = read_tga_r8g8b8a8_srgb_file(
-            self.renderer.main_device.clone(),
-            &self.renderer.graphic_command_pools[0],
-            "./textures/mars.tga",
-        )?;
-
-        let texture_ponies = read_tga_r8g8b8a8_srgb_file(
-            self.renderer.main_device.clone(),
-            &self.renderer.graphic_command_pools[0],
-            "./textures/ponies.tga",
-        )?;
-
-        let set_layouts = vec![ScopDescriptorSetLayout::builder(&self.renderer.main_device)
-            .add_binding(
-                0,
-                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                vk::ShaderStageFlags::FRAGMENT,
-            )
-            .build()?];
-
-        let material = Material::new(&self.renderer, set_layouts)?;
-
-        let material_instance_earth =
-            MaterialInstance::instanciate(&self.renderer, material.clone())?;
-        material_instance_earth
-            .get_writer_for_all(0)
-            .set_texture2d(0, &texture_earth)
-            .write();
-
-        let material_instance_ponies =
-            MaterialInstance::instanciate(&self.renderer, material.clone())?;
-        material_instance_ponies
-            .get_writer_for_all(0)
-            .set_texture2d(0, &texture_ponies)
-            .write();
-
-        let material_instance_mars =
-            MaterialInstance::instanciate(&self.renderer, material.clone())?;
-        material_instance_mars
-            .get_writer_for_all(0)
-            .set_texture2d(0, &texture_mars)
-            .write();
-
-        let shared_42 = Transform {
-            pivot: mesh_42.bounding_box.get_middle_point(),
-            scale: Vec3::one() * 2.,
-            ..Default::default()
-        };
-
-        {
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_mars.clone())
-                .transform(shared_42)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([7., 7., 0.]);
-
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_mars.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::right() * 7.;
-
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_mars.clone())
-                .transform(shared_42)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([7., -7., 0.]);
-        }
-
-        {
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_ponies.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([0., 7., 0.]);
-
-            GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_ponies.clone())
-                .transform(shared_42)
-                .build();
-
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_ponies.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([0., -7., 0.]);
-        }
-
-        {
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_earth.clone())
-                .transform(shared_42)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([-7., 7., 0.]);
-
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_earth.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::left() * 7.;
-
-            let go = GameObject::builder(self)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_earth.clone())
-                .transform(shared_42)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([-7., -7., 0.]);
-        }
-
+    pub fn run<F: FnMut(&mut Engine, &WinitInputHelper, u32)>(&mut self, mut on_update: F) -> Result<()> {
         let mut camera = Camera::empty();
         let aspect = self.renderer.window.window.inner_size().width as f32
             / self.renderer.window.window.inner_size().height as f32;
@@ -192,20 +53,20 @@ impl Engine {
         camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::default(), Vec3::up());
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
-        RendererWindow::run(event_loop, || {
-            self.renderer
-                .handle_draw_request(&camera, &self.game_objects)?;
+        RendererWindow::run(event_loop, |input| {
+            let (image_index, image_available, rendering_finished, may_begin_drawing) =
+                self.renderer.handle_draw_request()?;
 
-            self.renderer.flat_texture_interpolation = ((std::f32::consts::PI / 200.) * (self.renderer.frame_count % 200) as f32).sin();
+            on_update(self, input, image_index);
 
-            let yaw =
-                (std::f32::consts::PI * 2f32 / 420f32) * (self.renderer.frame_count % 420) as f32;
-            // let roll =
-            //     (std::f32::consts::PI * 2f32 / 840f32) * (self.renderer.frame_count % 840) as f32;
-            let roll = 0f32;
-            self.game_objects.values_mut().for_each(|e| {
-                e.borrow_mut().transform.rotation = [0., yaw, roll].into();
-            });
+            self.renderer.draw(
+                &camera,
+                &self.game_objects,
+                image_index,
+                image_available,
+                rendering_finished,
+                may_begin_drawing,
+            )?;
             Ok(())
         })?;
 

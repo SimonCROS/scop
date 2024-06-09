@@ -2,8 +2,7 @@ use std::rc::Rc;
 
 use anyhow::{ensure, Result};
 
-use crate::engine::mesh::Mesh;
-use crate::renderer::RendererDevice;
+use crate::{engine::mesh::Mesh, renderer::RendererDevice};
 
 fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&'a str>> {
     if line.starts_with(prefix) {

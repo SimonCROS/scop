@@ -17,7 +17,9 @@ use crate::engine::{camera::Camera, mesh::Mesh, GameObject};
 use raw_window_handle::HasRawDisplayHandle;
 
 use super::{
-    Material, MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer, ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter, ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData
+    Material, MaterialInstance, RendererDebug, RendererDevice, RendererWindow, ScopBuffer,
+    ScopCommandPool, ScopDescriptorPool, ScopDescriptorSetLayout, ScopDescriptorWriter,
+    ScopGpuCameraData, ScopRenderPass, ScopSwapchain, SimplePushConstantData,
 };
 
 pub struct Renderer {
@@ -90,11 +92,7 @@ impl Renderer {
             .build()?;
 
         let global_descriptor_set_layout = ScopDescriptorSetLayout::builder(&main_device)
-            .add_binding(
-                0,
-                vk::DescriptorType::UNIFORM_BUFFER,
-                vk::ShaderStageFlags::VERTEX,
-            )
+            .add_buffer_binding(0, vk::ShaderStageFlags::VERTEX)
             .build()?;
 
         let mut graphic_command_pools =
@@ -157,20 +155,27 @@ impl Renderer {
             graphic_command_pools,
             camera_buffers,
             frame_count: 0,
-            flat_texture_interpolation: 0.
+            flat_texture_interpolation: 0.,
         })
     }
 
     pub fn handle_draw_request(
         &mut self,
-        camera: &Camera,
-        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>
-    ) -> Result<()> {
+    ) -> Result<(u32, vk::Semaphore, vk::Semaphore, vk::Fence)> {
         self.frame_count += 1;
 
-        let (image_index, image_available, rendering_finished, may_begin_drawing) =
-            self.swapchain.next_image()?;
+        self.swapchain.next_image()
+    }
 
+    pub fn draw(
+        &mut self,
+        camera: &Camera,
+        game_objects: &HashMap<u32, Rc<RefCell<GameObject>>>,
+        image_index: u32,
+        image_available: vk::Semaphore,
+        rendering_finished: vk::Semaphore,
+        may_begin_drawing: vk::Fence,
+    ) -> Result<()> {
         let camera_data = ScopGpuCameraData {
             projection: *camera.get_projection(),
             view: *camera.get_view(),

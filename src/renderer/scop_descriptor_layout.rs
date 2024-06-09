@@ -34,7 +34,7 @@ impl ScopDescriptorSetLayout {
 }
 
 impl<'a> ScopDescriptorSetLayoutBuilder<'a> {
-    pub fn add_binding(
+    fn add_binding(
         mut self,
         binding: u32,
         descriptor_type: vk::DescriptorType,
@@ -44,6 +44,36 @@ impl<'a> ScopDescriptorSetLayoutBuilder<'a> {
             *vk::DescriptorSetLayoutBinding::builder()
                 .binding(binding)
                 .descriptor_type(descriptor_type)
+                .stage_flags(stage_flags)
+                .descriptor_count(1),
+        );
+        self
+    }
+
+    pub fn add_buffer_binding(
+        mut self,
+        binding: u32,
+        stage_flags: vk::ShaderStageFlags,
+    ) -> Self {
+        self.bindings.push(
+            *vk::DescriptorSetLayoutBinding::builder()
+                .binding(binding)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .stage_flags(stage_flags)
+                .descriptor_count(1),
+        );
+        self
+    }
+
+    pub fn add_texture_binding(
+        mut self,
+        binding: u32,
+        stage_flags: vk::ShaderStageFlags,
+    ) -> Self {
+        self.bindings.push(
+            *vk::DescriptorSetLayoutBinding::builder()
+                .binding(binding)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .stage_flags(stage_flags)
                 .descriptor_count(1),
         );

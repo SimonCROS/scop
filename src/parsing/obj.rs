@@ -5,7 +5,7 @@ use std::rc::Rc;
 use anyhow::{ensure, Context, Result};
 
 use crate::engine::mesh::{Mesh, Vertex};
-use crate::renderer::RendererDevice;
+use crate::engine::Engine;
 
 fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&'a str>> {
     if line.starts_with(prefix) {
@@ -16,14 +16,14 @@ fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&
     Ok(None)
 }
 
-pub fn read_obj_file(device: Rc<RendererDevice>, path: &'static str) -> Result<Mesh> {
+pub fn read_obj_file(engine: &Engine, path: &'static str) -> Result<Rc<Mesh>> {
     let mut object_name = String::new();
     let mut vertices = Vec::<Vertex>::new();
     let mut indices = Vec::<u32>::new();
     let mut indices_group: [u32; 3] = Default::default();
 
     let file = File::open(path)?;
-    let mut buf_reader = BufReader::new(file);
+    let buf_reader = BufReader::new(file);
     for line in buf_reader.lines() {
         let line = line?;
         if line.is_empty() || line.starts_with('#') {
@@ -58,14 +58,26 @@ pub fn read_obj_file(device: Rc<RendererDevice>, path: &'static str) -> Result<M
             indices_group[0] = values.next().context("Not enough values for index")?? - 1;
             indices_group[1] = values.next().context("Not enough values for index")?? - 1;
             indices_group[2] = values.next().context("Not enough values for index")?? - 1;
-            ensure!((indices_group[0] as usize) < vertices.len(), "Index too big");
-            ensure!((indices_group[1] as usize) < vertices.len(), "Index too big");
-            ensure!((indices_group[2] as usize) < vertices.len(), "Index too big");
+            ensure!(
+                (indices_group[0] as usize) < vertices.len(),
+                "Index too big"
+            );
+            ensure!(
+                (indices_group[1] as usize) < vertices.len(),
+                "Index too big"
+            );
+            ensure!(
+                (indices_group[2] as usize) < vertices.len(),
+                "Index too big"
+            );
             indices.extend_from_slice(&indices_group);
             for index in values {
                 indices_group[1] = indices_group[2];
                 indices_group[2] = index? - 1;
-                ensure!((indices_group[2] as usize) <= vertices.len(), "Index too big");
+                ensure!(
+                    (indices_group[2] as usize) <= vertices.len(),
+                    "Index too big"
+                );
                 indices.extend_from_slice(&indices_group);
             }
 
@@ -73,20 +85,17 @@ pub fn read_obj_file(device: Rc<RendererDevice>, path: &'static str) -> Result<M
         }
 
         if let Some(content) = get_content_of(&line, "mtllib ")? {
-            
-
             continue;
         }
 
         if let Some(content) = get_content_of(&line, "usemtl ")? {
-            
-
             continue;
         }
     }
 
-    Mesh::builder(device)
+    Mesh::builder(engine.renderer.main_device.clone())
         .vertices(&vertices)
         .indices(&indices)
         .build()
+        .map(Rc::new)
 }
