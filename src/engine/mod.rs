@@ -1,6 +1,7 @@
 pub mod camera;
 mod components;
 mod game_object;
+mod shared_resources;
 mod transform;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::RwLock};
@@ -11,15 +12,17 @@ use camera::Camera;
 pub use components::*;
 pub use game_object::*;
 use math::Vec3;
+pub use shared_resources::{
+    GameObjectId, MaterialId, MaterialInstanceId, ResourcesAccessor, ResourcesAccessorMut,
+    SharedResources,
+};
 pub use transform::*;
 use winit_input_helper::WinitInputHelper;
 
 use crate::{
     parsing::{read_obj_file, read_tga_r8g8b8a8_srgb_file},
-    renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout},
+    renderer::{Renderer, RendererWindow, ScopDescriptorSetLayout},
 };
-
-pub type GameObjectId = u32;
 
 pub struct FrameInfo<'a> {
     pub input: &'a WinitInputHelper,
@@ -28,29 +31,20 @@ pub struct FrameInfo<'a> {
 }
 
 pub struct Engine {
-    last_used_id: GameObjectId,
     pub game_objects: HashMap<GameObjectId, Rc<RefCell<GameObject>>>,
-    input: WinitInputHelper,
     pub renderer: Renderer,
+    input: WinitInputHelper,
+    resources: SharedResources,
 }
 
 impl<'a> Engine {
     pub fn new() -> Result<Self> {
         Ok(Engine {
-            last_used_id: 0,
             input: WinitInputHelper::new(),
             renderer: Renderer::new()?,
             game_objects: HashMap::new(),
+            resources: SharedResources::default(),
         })
-    }
-
-    pub fn register(&mut self, game_object: GameObject) -> Rc<RefCell<GameObject>> {
-        self.last_used_id += 1;
-
-        let id = self.last_used_id;
-        let go = Rc::new(RefCell::new(game_object));
-        self.game_objects.insert(id, go.clone());
-        go
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -64,21 +58,33 @@ impl<'a> Engine {
         let event_loop = self.renderer.window.acquire_event_loop()?;
 
         RendererWindow::run(event_loop, &mut self.input, |input| {
-            self.renderer.handle_draw_request(&camera, &self.game_objects, |renderer, image_index| {
-                let frame_info = FrameInfo {
-                    input,
-                    frame_count: renderer.frame_count,
-                    image_index,
-                };
-    
-                for game_object in self.game_objects.values() {
-                    game_object.borrow_mut().update(&frame_info);
-                }
-            })?;
+            self.renderer.handle_draw_request(
+                &camera,
+                &self.resources_accessor_mut(),
+                |renderer, resources, image_index| {
+                    let frame_info = FrameInfo {
+                        input,
+                        frame_count: renderer.frame_count,
+                        image_index,
+                    };
+
+                    for game_object in self.game_objects.values() {
+                        game_object.borrow_mut().update(&frame_info);
+                    }
+                },
+            )?;
             Ok(())
         })?;
 
         Ok(())
+    }
+
+    pub fn resources_accessor(&'a self) -> ResourcesAccessor<'a> {
+        ResourcesAccessor::from(&self.resources)
+    }
+
+    pub fn resources_accessor_mut(&'a mut self) -> ResourcesAccessorMut<'a> {
+        ResourcesAccessorMut::from(&mut self.resources)
     }
 }
 

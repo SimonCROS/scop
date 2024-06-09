@@ -4,13 +4,13 @@ use math::Vec3;
 use crate::{
     engine::{Engine, GameObject, Transform},
     parsing::{read_frag_spv_file, read_obj_file, read_tga_r8g8b8a8_srgb_file, read_vert_spv_file},
-    renderer::{Material, ScopDescriptorSetLayout},
+    renderer::{MaterialId, ScopDescriptorSetLayout},
 };
 
 pub struct App {}
 
 impl App {
-    pub fn main(engine: &mut Engine) -> Result<()> {
+    pub fn main(engine: &Engine) -> Result<()> {
         // --------------------
         // Meshs
         // --------------------
@@ -47,7 +47,7 @@ impl App {
                 .build()?,
         ];
 
-        let material = Material::new(&engine.renderer, set_layouts, &vert_shader, &frag_shader)?;
+        let material = MaterialId::new(&engine.renderer, set_layouts, &vert_shader, &frag_shader)?;
 
         // --------------------
         // Material instances

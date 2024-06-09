@@ -2,14 +2,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::renderer::{MaterialInstance, Mesh};
 
-use super::{Component, Engine, FrameInfo, Transform};
+use super::{shared_resources::MaterialInstanceId, Component, Engine, FrameInfo, ResourcesAccessor, Transform};
 
 pub struct GameObject {
     pub name: Option<String>,
     pub transform: Transform,
     pub components: Vec<Box<dyn Component>>,
     pub mesh: Option<Rc<Mesh>>,
-    pub material: Option<MaterialInstance>,
+    pub material: Option<MaterialInstanceId>,
 }
 
 pub struct GameObjectBuilder<'a> {
@@ -18,7 +18,7 @@ pub struct GameObjectBuilder<'a> {
     transform: Option<Transform>,
     components: Vec<Box<dyn Component>>,
     mesh: Option<Rc<Mesh>>,
-    material: Option<MaterialInstance>,
+    material: Option<MaterialInstanceId>,
 }
 
 impl GameObject {
@@ -56,18 +56,18 @@ impl<'a> GameObjectBuilder<'a> {
         self
     }
 
-    pub fn material(mut self, material: MaterialInstance) -> Self {
+    pub fn material(mut self, material: MaterialInstanceId) -> Self {
         self.material = Some(material);
         self
     }
 
-    pub fn build(self) -> Rc<RefCell<GameObject>> {
-        self.engine.register(GameObject {
+    pub fn build(self) -> GameObject {
+        GameObject {
             name: self.name.map(|s| s.to_string()),
             transform: self.transform.unwrap_or(Transform::default()),
             components: self.components,
             mesh: self.mesh,
             material: self.material,
-        })
+        }
     }
 }
