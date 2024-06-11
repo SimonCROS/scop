@@ -25,9 +25,15 @@ impl App {
         // Meshs
         // --------------------
 
-        let mesh_teapot = read_obj_file(engine, "./resources/teapot2.obj")?;
+        let mesh_old_phone = read_obj_file(engine, "./resources/old_phone.obj")?;
 
-        let mesh_42 = read_obj_file(engine, "./resources/sphere.obj")?;
+        let mesh_sphere = read_obj_file(engine, "./resources/sphere.obj")?;
+
+        let mesh_42 = read_obj_file(engine, "./resources/42.obj")?;
+
+        let mesh_teapot_1 = read_obj_file(engine, "./resources/teapot.obj")?;
+
+        let mesh_teapot_2 = read_obj_file(engine, "./resources/teapot2.obj")?;
 
         // --------------------
         // Textures
@@ -38,6 +44,8 @@ impl App {
         let texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
 
         let texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
+
+        let texture_old_phone = read_tga_r8g8b8a8_srgb_file(engine, "./textures/old_phone_d.tga")?;
 
         // --------------------
         // Shaders
@@ -84,92 +92,89 @@ impl App {
             .set_texture2d(0, &texture_mars)
             .write();
 
+        let material_instance_old_phone =
+            MaterialInstance::instanciate(&engine.renderer, material.clone())?;
+        material_instance_old_phone
+            .writer(0)
+            .set_texture2d(0, &texture_old_phone)
+            .write();
+
         // --------------------
         // GameObjects
         // --------------------
 
-        let shared_42_transform = Transform {
-            pivot: mesh_42.bounding_box.get_middle_point(),
-            scale: Vec3::one() * 2.,
-            ..Default::default()
-        };
+        let go = GameObject::builder(engine)
+            .name("Earth")
+            .mesh(mesh_sphere.clone())
+            .material(material_instance_earth.clone())
+            .transform(Transform {
+                scale: Vec3::one() * 2.,
+                ..Default::default()
+            })
+            .build();
+        go.borrow_mut().transform.translation = Vec3::from([7., -7., 0.]);
 
-        // Left
-        {
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_mars.clone())
-                .transform(shared_42_transform)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([7., 7., 0.]);
+        let go = GameObject::builder(engine)
+            .name("Old Phone")
+            .mesh(mesh_old_phone.clone())
+            .material(material_instance_old_phone.clone())
+            .transform(Transform {
+                pivot: mesh_old_phone.bounding_box.get_middle_point(),
+                scale: Vec3::one() * 15.,
+                ..Default::default()
+            })
+            .build();
+        go.borrow_mut().transform.translation = Vec3::from([0., -7., 0.]);
 
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_mars.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::right() * 7.;
+        let go = GameObject::builder(engine)
+            .name("Mars")
+            .mesh(mesh_sphere.clone())
+            .material(material_instance_mars.clone())
+            .transform(Transform {
+                scale: Vec3::one() * 1.5,
+                ..Default::default()
+            })
+            .build();
+        go.borrow_mut().transform.translation = Vec3::from([-7., -7., 0.]);
 
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_mars.clone())
-                .transform(shared_42_transform)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([7., -7., 0.]);
-        }
+        let go = GameObject::builder(engine)
+            .name("42")
+            .mesh(mesh_42.clone())
+            .material(material_instance_ponies.clone())
+            .transform(Transform {
+                pivot: mesh_42.bounding_box.get_middle_point(),
+                scale: Vec3::one() * 2.5,
+                ..Default::default()
+            })
+            .build();
+        go.borrow_mut().transform.translation = Vec3::from([0., 0., 0.]);
 
-        // Center
-        {
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_ponies.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([0., 7., 0.]);
+        let go = GameObject::builder(engine)
+            .name("Teapot 1")
+            .mesh(mesh_teapot_1.clone())
+            .material(material_instance_ponies.clone())
+            .transform(Transform {
+                pivot: mesh_teapot_1.bounding_box.get_middle_point(),
+                ..Default::default()
+            })
+            .build();
+        go.borrow_mut().transform.translation = Vec3::from([7., 7., 0.]);
 
-            GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_ponies.clone())
-                .transform(shared_42_transform)
-                .build();
+        let go = GameObject::builder(engine)
+            .name("Teapot 2")
+            .mesh(mesh_teapot_2.clone())
+            .material(material_instance_ponies.clone())
+            .transform(Transform {
+                pivot: mesh_teapot_2.bounding_box.get_middle_point(),
+                ..Default::default()
+            })
+            .build();
+        go.borrow_mut().transform.translation = Vec3::from([-7., 7., 0.]);
 
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_ponies.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([0., -7., 0.]);
-        }
-
-        // Right
-        {
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_earth.clone())
-                .transform(shared_42_transform)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([-7., 7., 0.]);
-
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_teapot.clone())
-                .material(material_instance_earth.clone())
-                .build();
-            go.borrow_mut().transform.translation = Vec3::left() * 7.;
-
-            let go = GameObject::builder(engine)
-                .name("Hello World")
-                .mesh(mesh_42.clone())
-                .material(material_instance_earth.clone())
-                .transform(shared_42_transform)
-                .build();
-            go.borrow_mut().transform.translation = Vec3::from([-7., -7., 0.]);
-        }
-
+        // --------------------
+        // Logic
+        // --------------------
+        
         engine.run(|engine, input, image_index| {
             if input.key_held_logical(Key::Named(NamedKey::ArrowLeft)) {
                 self.current_yaw -= 0.02;
