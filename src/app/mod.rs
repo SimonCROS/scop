@@ -27,7 +27,7 @@ impl App {
 
         let mesh_teapot = read_obj_file(engine, "./resources/teapot2.obj")?;
 
-        let mesh_42 = read_obj_file(engine, "./resources/42.obj")?;
+        let mesh_42 = read_obj_file(engine, "./resources/sphere.obj")?;
 
         // --------------------
         // Textures
@@ -38,7 +38,6 @@ impl App {
         let texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
 
         let texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
-        // let texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
 
         // --------------------
         // Shaders
