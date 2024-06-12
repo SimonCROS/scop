@@ -17,8 +17,6 @@ impl ScopRenderPass {
         window: &RendererWindow,
         swapchain: &ScopSwapchain,
     ) -> Result<Self> {
-        let surface_formats = window.formats(device.physical_device)?;
-        let surface_format = surface_formats.first().unwrap();
         let depth_format = device.find_supported_format(
             vec![
                 vk::Format::D32_SFLOAT,
@@ -31,7 +29,7 @@ impl ScopRenderPass {
 
         let attachments = [
             vk::AttachmentDescription::builder()
-                .format(surface_format.format)
+                .format(swapchain.surface_format.format)
                 .samples(vk::SampleCountFlags::TYPE_1)
                 .load_op(vk::AttachmentLoadOp::CLEAR)
                 .store_op(vk::AttachmentStoreOp::STORE)
