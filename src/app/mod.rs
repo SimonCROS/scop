@@ -25,27 +25,27 @@ impl App {
         // Meshs
         // --------------------
 
-        let mesh_old_phone = read_obj_file(engine, "./resources/old_phone.obj")?;
+        let mut mesh_old_phone = read_obj_file(engine, "./resources/old_phone.obj")?;
 
-        let mesh_sphere = read_obj_file(engine, "./resources/sphere.obj")?;
+        let mut mesh_sphere = read_obj_file(engine, "./resources/sphere.obj")?;
 
-        let mesh_42 = read_obj_file(engine, "./resources/42.obj")?;
+        let mut mesh_42 = read_obj_file(engine, "./resources/42.obj")?;
 
-        let mesh_teapot_1 = read_obj_file(engine, "./resources/teapot.obj")?;
+        let mut mesh_teapot_1 = read_obj_file(engine, "./resources/teapot.obj")?;
 
-        let mesh_teapot_2 = read_obj_file(engine, "./resources/teapot2.obj")?;
+        let mut mesh_teapot_2 = read_obj_file(engine, "./resources/teapot2.obj")?;
 
         // --------------------
         // Textures
         // --------------------
 
-        let texture_earth = read_tga_r8g8b8a8_srgb_file(engine, "./textures/earth.tga")?;
+        let mut texture_earth = read_tga_r8g8b8a8_srgb_file(engine, "./textures/earth.tga")?;
 
-        let texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
+        let mut texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
 
-        let texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
+        let mut texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
 
-        let texture_old_phone = read_tga_r8g8b8a8_srgb_file(engine, "./textures/old_phone_d.tga")?;
+        let mut texture_old_phone = read_tga_r8g8b8a8_srgb_file(engine, "./textures/old_phone_d.tga")?;
 
         // --------------------
         // Shaders
@@ -235,6 +235,17 @@ impl App {
                 e.borrow_mut().transform.rotation =
                     [self.current_pitch, self.current_yaw, self.current_roll].into();
             });
-        })
+        })?;
+
+        engine.renderer.wait_gpu();
+
+        texture_earth.cleanup();
+        texture_mars.cleanup();
+        texture_old_phone.cleanup();
+        texture_ponies.cleanup();
+
+        engine.game_objects.clear();
+
+        Ok(())
     }
 }
