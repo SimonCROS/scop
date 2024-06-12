@@ -206,8 +206,10 @@ impl RendererPipeline {
             )
         }
     }
+}
 
-    pub fn cleanup(&self) {
+impl Drop for RendererPipeline {
+    fn drop(&mut self) {
         unsafe {
             self.device
                 .logical_device
