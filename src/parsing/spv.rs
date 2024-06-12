@@ -7,10 +7,7 @@ use std::{
 use anyhow::{ensure, Result};
 use ash::vk;
 
-use crate::{
-    engine::{self, Engine},
-    renderer::Shader,
-};
+use crate::{engine::Engine, renderer::Shader};
 
 fn read_spv_file(path: &str) -> Result<Vec<u32>> {
     let mut f = File::open(&path)?;

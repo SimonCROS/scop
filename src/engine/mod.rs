@@ -6,17 +6,13 @@ mod transform;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use anyhow::Result;
-use ash::vk;
 use camera::Camera;
 pub use game_object::*;
 use math::Vec3;
 pub use transform::*;
 use winit_input_helper::WinitInputHelper;
 
-use crate::{
-    parsing::{read_obj_file, read_tga_r8g8b8a8_srgb_file},
-    renderer::{Material, MaterialInstance, Renderer, RendererWindow, ScopDescriptorSetLayout},
-};
+use crate::renderer::{Renderer, RendererWindow};
 
 pub type GameObjectId = u32;
 

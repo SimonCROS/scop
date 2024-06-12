@@ -1,12 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
-
 use anyhow::Result;
 use ash::{extensions::khr, vk};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::{
     dpi::LogicalSize,
     event_loop::EventLoop,
-    keyboard::{Key, KeyCode, NamedKey},
+    keyboard::{Key, NamedKey},
     window::{Window, WindowBuilder},
 };
 use winit_input_helper::WinitInputHelper;
