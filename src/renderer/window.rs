@@ -105,7 +105,7 @@ impl RendererWindow {
                 match draw_request(&input) {
                     Ok(_) => (),
                     Err(e) => {
-                        eprint!("{}", e);
+                        eprintln!("{}", e);
                         elwt.exit();
                     }
                 }

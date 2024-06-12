@@ -159,12 +159,37 @@ impl Renderer {
         })
     }
 
+    pub fn recreate_swapchain(&mut self) -> Result<()> {
+        self.wait_gpu();
+        self.swapchain.cleanup();
+        self.swapchain = ScopSwapchain::new(
+            &self.entry,
+            &self.instance,
+            self.main_device.clone(),
+            &self.window,
+        )?;
+        self.defaut_render_pass.change_swapchain(&self.swapchain)?;
+        Ok(())
+    }
+
     pub fn handle_draw_request(
         &mut self,
-    ) -> Result<(u32, vk::Semaphore, vk::Semaphore, vk::Fence)> {
+    ) -> Result<Option<(u32, vk::Semaphore, vk::Semaphore, vk::Fence)>> {
         self.frame_count += 1;
 
-        self.swapchain.next_image()
+        let result = self.swapchain.next_image();
+        Ok(Some(result?))
+        // match result {
+        //     Ok(e) => Ok(Some(e)),
+        //     Err(e) => {
+        //         if let Some(&vk::Result::ERROR_OUT_OF_DATE_KHR) = e.downcast_ref::<vk::Result>() {
+        //             self.recreate_swapchain()?;
+        //             Ok(None)
+        //         } else {
+        //             Err(e)
+        //         }
+        //     }
+        // }
     }
 
     pub fn draw(
@@ -204,13 +229,24 @@ impl Renderer {
             &[PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
             may_begin_drawing,
         )?;
-        self.swapchain.queue_present(
+
+        let result = self.swapchain.queue_present(
             command_pool.get_queue_family().queues[0],
             image_index,
             &[rendering_finished],
-        )?;
-
-        Ok(())
+        );
+        result
+        // match result {
+        //     Ok(()) => Ok(()),
+        //     Err(e) => {
+        //         if let Some(&vk::Result::SUBOPTIMAL_KHR | &vk::Result::ERROR_OUT_OF_DATE_KHR) = e.downcast_ref::<vk::Result>() {
+        //             self.recreate_swapchain()?;
+        //             Ok(())
+        //         } else {
+        //             Err(e)
+        //         }
+        //     },
+        // }
     }
 
     pub fn wait_gpu(&self) {

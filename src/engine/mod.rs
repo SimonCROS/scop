@@ -44,7 +44,10 @@ impl Engine {
         go
     }
 
-    pub fn run<F: FnMut(&mut Engine, &WinitInputHelper, u32)>(&mut self, mut on_update: F) -> Result<()> {
+    pub fn run<F: FnMut(&mut Engine, &WinitInputHelper, u32)>(
+        &mut self,
+        mut on_update: F,
+    ) -> Result<()> {
         let mut camera = Camera::empty();
         let aspect = self.renderer.window.window.inner_size().width as f32
             / self.renderer.window.window.inner_size().height as f32;
@@ -54,19 +57,22 @@ impl Engine {
 
         let event_loop = self.renderer.window.acquire_event_loop()?;
         RendererWindow::run(event_loop, |input| {
-            let (image_index, image_available, rendering_finished, may_begin_drawing) =
-                self.renderer.handle_draw_request()?;
+            let next_frame_infos = self.renderer.handle_draw_request()?;
 
-            on_update(self, input, image_index);
+            if let Some((image_index, image_available, rendering_finished, may_begin_drawing)) =
+                next_frame_infos
+            {
+                on_update(self, input, image_index);
 
-            self.renderer.draw(
-                &camera,
-                &self.game_objects,
-                image_index,
-                image_available,
-                rendering_finished,
-                may_begin_drawing,
-            )?;
+                self.renderer.draw(
+                    &camera,
+                    &self.game_objects,
+                    image_index,
+                    image_available,
+                    rendering_finished,
+                    may_begin_drawing,
+                )?;
+            }
             Ok(())
         })?;
 
