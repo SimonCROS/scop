@@ -27,6 +27,7 @@ pub struct ScopSwapchain {
 
 impl ScopSwapchain {
     pub fn new(
+        entry: &ash::Entry,
         instance: &ash::Instance,
         device: Rc<RendererDevice>,
         window: &RendererWindow,
@@ -40,7 +41,7 @@ impl ScopSwapchain {
         let surface_formats = window.formats(device.physical_device)?;
         let surface_format = surface_formats.into_iter().find(|s| s.format == vk::Format::B8G8R8A8_SRGB).expect("B8G8R8A8_SRGB not available");
 
-        let swapchain_loader = extensions::khr::Swapchain::new(instance, &device.logical_device);
+        let swapchain_loader = extensions::khr::Swapchain::new_from_instance(entry, instance, device.logical_device.handle());
 
         let queue_family_indicies = [graphics_queue_family.index];
 
