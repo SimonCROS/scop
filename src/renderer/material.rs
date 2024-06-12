@@ -58,6 +58,14 @@ impl Material {
     }
 }
 
+impl Drop for Material {
+    fn drop(&mut self) {
+        for set_layout in &mut self.material_sets_layouts {
+            set_layout.cleanup(&self.pipeline.device);
+        }
+    }
+}
+
 impl MaterialInstance {
     pub fn instanciate(renderer: &Renderer, material: MaterialRef) -> Result<MaterialInstanceRef> {
         let mut material_sets = Vec::with_capacity(renderer.swapchain.image_count);
