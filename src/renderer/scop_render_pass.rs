@@ -14,7 +14,6 @@ pub struct ScopRenderPass {
 impl ScopRenderPass {
     pub fn new(
         device: Rc<RendererDevice>,
-        window: &RendererWindow,
         swapchain: &ScopSwapchain,
     ) -> Result<Self> {
         let depth_format = device.find_supported_format(

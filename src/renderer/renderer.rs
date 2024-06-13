@@ -77,7 +77,7 @@ impl Renderer {
 
         let swapchain = ScopSwapchain::new(&entry, &instance, main_device.clone(), &window)?;
 
-        let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &window, &swapchain)?;
+        let defaut_render_pass = ScopRenderPass::new(main_device.clone(), &swapchain)?;
 
         let global_descriptor_pool = ScopDescriptorPool::builder(&main_device)
             .add_size(
