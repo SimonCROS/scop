@@ -6,6 +6,7 @@ all: $(NAME)
 
 $(NAME): $(SHADERS_SPV)
 	cargo build
+	cp target/debug/scop $(NAME)
 
 clean:
 	cargo clean -p scop
@@ -13,6 +14,7 @@ clean:
 fclean:
 	cargo clean
 	rm -f $(SHADERS_SPV)
+	rm -f $(NAME)
 
 re: fclean all
 
