@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    ffi::{self, c_char, CString},
+    ffi::{CStr, CString},
     mem::size_of,
     rc::Rc,
 };
@@ -29,7 +29,7 @@ pub struct Renderer {
     )]
     entry: ash::Entry,
     pub instance: Rc<ash::Instance>,
-    pub debug: RendererDebug,
+    pub debug: Option<RendererDebug>,
     pub window: RendererWindow,
     pub main_device: Rc<RendererDevice>,
     pub swapchain: ScopSwapchain,
@@ -44,12 +44,24 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    fn used_layer_names() -> Vec<ffi::CString> {
-        vec![ffi::CString::new("VK_LAYER_KHRONOS_validation").unwrap()]
+    fn try_add_layer(available_layers: &Vec<vk::LayerProperties>, layers_names: &mut Vec<CString>, layer: CString) -> bool {
+        for layer_props in available_layers {
+            if layer.as_c_str() == unsafe { CStr::from_ptr(layer_props.layer_name.as_ptr()) } {
+                layers_names.push(layer);
+                return true;
+            }
+        }
+        return false;
     }
 
-    fn used_extensions() -> Vec<*const c_char> {
-        vec![ext::DebugUtils::name().as_ptr()]
+    fn try_add_extension(available_extensions: &Vec<vk::ExtensionProperties>, extensions_names: &mut Vec<CString>, extension: CString) -> bool {
+        for extension_props in available_extensions {
+            if extension.as_c_str() == unsafe { CStr::from_ptr(extension_props.extension_name.as_ptr()) } {
+                extensions_names.push(extension);
+                return true;
+            }
+        }
+        return false;
     }
 
     pub fn new() -> Result<Self> {
@@ -57,21 +69,32 @@ impl Renderer {
 
         let entry = unsafe { ash::Entry::load() }?;
 
-        let layers_names = Self::used_layer_names();
-        let layers_names_raw: Vec<*const c_char> =
-            layers_names.iter().map(|l| l.as_ptr()).collect();
+        let available_layers = entry.enumerate_instance_layer_properties()?;
+        let available_extension = entry.enumerate_instance_extension_properties(None)?;
+        let mut layers_names = Vec::<CString>::with_capacity(4);
+        let mut extension_names = Vec::<CString>::with_capacity(4);
 
-        let mut extension_names = Self::used_extensions();
-        extension_names.extend_from_slice(ash_window::enumerate_required_extensions(
-            window.raw_display_handle(),
-        )?);
+        for extension in ash_window::enumerate_required_extensions(window.raw_display_handle())? {
+            extension_names.push(unsafe { CString::from(CStr::from_ptr(*extension)) });
+        }
 
-        let instance = Self::create_instance(&entry, &layers_names_raw, &extension_names)?;
+        Self::try_add_layer(
+            &available_layers,
+            &mut layers_names,
+            CString::new("VK_LAYER_KHRONOS_validation")?,
+        );
+        let debug_available = Self::try_add_extension(
+            &available_extension,
+            &mut extension_names,
+            CString::from(ext::DebugUtils::name()),
+        );
+
+        let instance = Self::create_instance(&entry, &layers_names, &extension_names)?;
         let instance = Rc::new(instance);
 
         let window = RendererWindow::new(event_loop, window, &entry, &instance)?;
 
-        let debug = RendererDebug::new(&entry, &instance)?;
+        let debug = if debug_available { Some(RendererDebug::new(&entry, &instance)?) } else { None };
 
         let main_device = Rc::new(RendererDevice::new(&instance)?);
 
@@ -323,8 +346,8 @@ impl Renderer {
 
     fn create_instance(
         entry: &ash::Entry,
-        used_layer_names: &Vec<*const c_char>,
-        used_extensions: &Vec<*const c_char>,
+        layers: &Vec<CString>,
+        extensions: &Vec<CString>,
     ) -> Result<ash::Instance> {
         let app_name = CString::new("Vulkan App")?;
         let engine_name = CString::new("Vulkan Engine")?;
@@ -336,10 +359,13 @@ impl Renderer {
             .engine_version(vk::make_api_version(0, 1, 0, 0))
             .api_version(vk::API_VERSION_1_3);
 
+        let layer_names = layers.iter().map(|e| e.as_ptr()).collect::<Vec<*const i8>>();
+        let extension_names = extensions.iter().map(|e| e.as_ptr()).collect::<Vec<*const i8>>();
+
         let instance_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
-            .enabled_extension_names(used_extensions)
-            .enabled_layer_names(used_layer_names);
+            .enabled_layer_names(&layer_names)
+            .enabled_extension_names(&extension_names);
 
         let instance = unsafe { entry.create_instance(&instance_info, None)? };
 
@@ -360,7 +386,9 @@ impl Drop for Renderer {
         self.swapchain.cleanup();
         self.defaut_render_pass.cleanup();
         self.main_device.cleanup();
-        self.debug.cleanup();
+        if let Some(debug) = &mut self.debug {
+            debug.cleanup();
+        }
         self.window.cleanup();
 
         unsafe { self.instance.destroy_instance(None) };
