@@ -14,9 +14,6 @@ pub struct AppObjects {
     last_frame_move: u32,
     texture_target_fade: f32,
     texture_change_frame: u32,
-    current_pitch: f32,
-    current_yaw: f32,
-    current_roll: f32,
 }
 
 impl AppObjects {
@@ -24,8 +21,6 @@ impl AppObjects {
         // --------------------
         // Meshs
         // --------------------
-
-        let mesh_old_phone = read_obj_file(engine, "./resources/old_phone.obj")?;
 
         let mesh_sphere = read_obj_file(engine, "./resources/sphere.obj")?;
 
@@ -44,8 +39,6 @@ impl AppObjects {
         let mut texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
 
         let mut texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
-
-        let mut texture_old_phone = read_tga_r8g8b8a8_srgb_file(engine, "./textures/old_phone_d.tga")?;
 
         // --------------------
         // Shaders
@@ -92,13 +85,6 @@ impl AppObjects {
             .set_texture2d(0, &texture_mars)
             .write();
 
-        let material_instance_old_phone =
-            MaterialInstance::instanciate(&engine.renderer, material.clone())?;
-        material_instance_old_phone
-            .writer(0)
-            .set_texture2d(0, &texture_old_phone)
-            .write();
-
         // --------------------
         // GameObjects
         // --------------------
@@ -113,18 +99,6 @@ impl AppObjects {
             })
             .build();
         go.borrow_mut().transform.translation = Vec3::from([7., -7., 0.]);
-
-        let go = GameObject::builder(engine)
-            .name("Old Phone")
-            .mesh(mesh_old_phone.clone())
-            .material(material_instance_old_phone.clone())
-            .transform(Transform {
-                pivot: mesh_old_phone.bounding_box.get_middle_point(),
-                scale: Vec3::one() * 15.,
-                ..Default::default()
-            })
-            .build();
-        go.borrow_mut().transform.translation = Vec3::from([0., -7., 0.]);
 
         let go = GameObject::builder(engine)
             .name("Mars")
@@ -144,6 +118,7 @@ impl AppObjects {
             .transform(Transform {
                 pivot: mesh_42.bounding_box.get_middle_point(),
                 scale: Vec3::one() * 2.5,
+                rotation: Vec3::up() * std::f32::consts::PI / 2.,
                 ..Default::default()
             })
             .build();
@@ -178,26 +153,26 @@ impl AppObjects {
         let mut camera = Camera::empty();
         let aspect = engine.renderer.window.window.inner_size().width as f32
             / engine.renderer.window.window.inner_size().height as f32;
-        camera.set_perspective_projection(60.0, aspect, 0.0, 100.0);
-        // camera.set_view_target([20.0, 0.0, 0.0].into(), Vector3::zero(), Vector3::up());
+        camera.set_perspective_projection(60.0, aspect, 1.0, 100.0);
         camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::default(), Vec3::up());
         
-        engine.run(&camera, |engine, input, image_index| {
+        engine.run(&camera, |engine, input, _image_index| {
             let mut movement = Vec3::default();
+            let mut rotation = Vec3::default();
             if input.key_held_logical(Key::Named(NamedKey::ArrowLeft)) {
-                self.current_yaw -= 0.02;
+                rotation.y -= 0.02;
                 self.last_frame_move = engine.renderer.frame_count;
             }
             if input.key_held_logical(Key::Named(NamedKey::ArrowRight)) {
-                self.current_yaw += 0.02;
+                rotation.y += 0.02;
                 self.last_frame_move = engine.renderer.frame_count;
             }
             if input.key_held_logical(Key::Named(NamedKey::ArrowUp)) {
-                self.current_roll += 0.02;
+                rotation.z += 0.02;
                 self.last_frame_move = engine.renderer.frame_count;
             }
             if input.key_held_logical(Key::Named(NamedKey::ArrowDown)) {
-                self.current_roll -= 0.02;
+                rotation.z -= 0.02;
                 self.last_frame_move = engine.renderer.frame_count;
             }
             if input.key_held(KeyCode::KeyA) {
@@ -230,7 +205,7 @@ impl AppObjects {
 
             if self.last_frame_move == 0 || engine.renderer.frame_count - self.last_frame_move > 200
             {
-                self.current_yaw += 0.02;
+                rotation.y += 0.02;
             }
 
             if engine.renderer.flat_texture_interpolation < self.texture_target_fade {
@@ -242,8 +217,7 @@ impl AppObjects {
             }
 
             engine.game_objects.values_mut().for_each(|e| {
-                e.borrow_mut().transform.rotation =
-                    [self.current_pitch, self.current_yaw, self.current_roll].into();
+                e.borrow_mut().transform.rotation += rotation;
                 e.borrow_mut().transform.translation += movement;
             });
         })?;
@@ -252,7 +226,6 @@ impl AppObjects {
 
         texture_earth.cleanup();
         texture_mars.cleanup();
-        texture_old_phone.cleanup();
         texture_ponies.cleanup();
 
         engine.game_objects.clear();

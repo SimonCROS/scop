@@ -13,9 +13,6 @@ use crate::{
 pub struct AppSamourai {
     texture_target_fade: f32,
     texture_change_frame: u32,
-    current_pitch: f32,
-    current_yaw: f32,
-    current_roll: f32,
 }
 
 impl AppSamourai {
@@ -105,16 +102,17 @@ impl AppSamourai {
         let mut camera = Camera::empty();
         let aspect = engine.renderer.window.window.inner_size().width as f32
             / engine.renderer.window.window.inner_size().height as f32;
-        camera.set_perspective_projection(60.0, aspect, 0.0, 100.0);
+        camera.set_perspective_projection(60.0, aspect, 1.0, 100.0);
         camera.set_view_direction([0.0, 10.0, 25.0].into(), Vec3::backward(), Vec3::up());
         
-        engine.run(&camera, |engine, input, image_index| {
+        engine.run(&camera, |engine, input, _image_index| {
             let mut movement = Vec3::default();
+            let mut rotation = Vec3::default();
             if input.key_held_logical(Key::Named(NamedKey::ArrowLeft)) {
-                self.current_yaw -= 0.02;
+                rotation.y -= 0.02;
             }
             if input.key_held_logical(Key::Named(NamedKey::ArrowRight)) {
-                self.current_yaw += 0.02;
+                rotation.y += 0.02;
             }
             if input.key_held(KeyCode::KeyA) {
                 movement.x -= 0.084;
@@ -152,9 +150,15 @@ impl AppSamourai {
                     (engine.renderer.flat_texture_interpolation - 0.016).clamp(0., 1.);
             }
 
+            if input.key_pressed_logical(Key::Character(&"r")) {
+                engine.game_objects.values_mut().for_each(|e| {
+                    e.borrow_mut().transform = Transform::default();
+                });
+                return;
+            }
+
             engine.game_objects.values_mut().for_each(|e| {
-                e.borrow_mut().transform.rotation =
-                    [self.current_pitch, self.current_yaw, self.current_roll].into();
+                e.borrow_mut().transform.rotation += rotation;
                 e.borrow_mut().transform.translation += movement;
             });
         })?;

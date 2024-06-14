@@ -86,9 +86,9 @@ impl Renderer {
             )
             .add_size(
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                (swapchain.image_count * 3) as u32,
+                (swapchain.image_count * 10) as u32,
             )
-            .max_sets((swapchain.image_count * 10) as u32)
+            .max_sets((swapchain.image_count * 20) as u32)
             .build()?;
 
         let global_descriptor_set_layout = ScopDescriptorSetLayout::builder(&main_device)
