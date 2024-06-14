@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::{Ok, Result};
 use ash::vk;
 
-use super::{RendererDevice, RendererWindow, ScopFramebuffer, ScopSwapchain};
+use super::{RendererDevice, ScopFramebuffer, ScopSwapchain};
 
 pub struct ScopRenderPass {
     device: Rc<RendererDevice>,

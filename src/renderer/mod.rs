@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod debug;
 mod device;
 mod material;
@@ -18,15 +20,13 @@ mod window;
 
 pub use debug::RendererDebug;
 pub use device::{QueueFamily, QueueFamilyId, RendererDevice};
-pub use material::{Material, MaterialRef, MaterialInstance, MaterialInstanceRef};
-pub use pipeline::{
-    RendererPipeline, ScopGpuCameraData, ScopPipelineBuilder, SimplePushConstantData,
-};
+pub use material::{Material, MaterialInstance, MaterialInstanceRef};
+pub use pipeline::{RendererPipeline, ScopGpuCameraData, SimplePushConstantData};
 pub use renderer::Renderer;
 pub use scop_buffer::ScopBuffer;
 pub use scop_command_pool::ScopCommandPool;
-pub use scop_descriptor_layout::{ScopDescriptorSetLayout, ScopDescriptorSetLayoutBuilder};
-pub use scop_descriptor_pool::{ScopDescriptorPool, ScopDescriptorPoolBuilder};
+pub use scop_descriptor_layout::ScopDescriptorSetLayout;
+pub use scop_descriptor_pool::ScopDescriptorPool;
 pub use scop_descriptor_writer::ScopDescriptorWriter;
 pub use scop_framebuffer::ScopFramebuffer;
 pub use scop_image::ScopImage;

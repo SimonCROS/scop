@@ -144,13 +144,13 @@ pub fn read_obj_file(engine: &Engine, path: &'static str) -> Result<Rc<Mesh>> {
             continue;
         }
 
-        if let Some(content) = get_content_of(&line, "mtllib ")? {
-            continue;
-        }
+        // if let Some(content) = get_content_of(&line, "mtllib ")? {
+        //     continue;
+        // }
 
-        if let Some(content) = get_content_of(&line, "usemtl ")? {
-            continue;
-        }
+        // if let Some(content) = get_content_of(&line, "usemtl ")? {
+        //     continue;
+        // }
     }
 
     Mesh::builder(engine.renderer.main_device.clone())

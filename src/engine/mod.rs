@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod camera;
 mod game_object;
 pub mod mesh;

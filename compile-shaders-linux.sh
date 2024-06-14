@@ -1,2 +1,2 @@
-/home/scros/sgoinfre/vulkan/1.3.239.0/x86_64/bin/glslc shaders/default.vert -o shaders/default.vert.spv
-/home/scros/sgoinfre/vulkan/1.3.239.0/x86_64/bin/glslc shaders/default.frag -o shaders/default.frag.spv
+glslc shaders/default.vert -o shaders/default.vert.spv
+glslc shaders/default.frag -o shaders/default.frag.spv

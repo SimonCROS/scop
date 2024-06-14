@@ -8,8 +8,6 @@ use super::RendererDevice;
 pub struct ScopFramebuffer {
     device: Rc<RendererDevice>,
     pub framebuffer: vk::Framebuffer,
-    pub image_view: vk::ImageView,
-    pub depth_image_view: vk::ImageView,
     pub extent: vk::Extent2D,
 }
 
@@ -38,8 +36,6 @@ impl ScopFramebuffer {
         Ok(Self {
             device,
             framebuffer,
-            image_view,
-            depth_image_view,
             extent,
         })
     }
