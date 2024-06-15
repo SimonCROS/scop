@@ -3,7 +3,7 @@ use ash::vk;
 
 use std::ffi;
 
-use anyhow::Result;
+use crate::utils::Result;
 
 unsafe extern "system" fn vulkan_debug_utils_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,

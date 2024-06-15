@@ -1,11 +1,12 @@
 use core::slice;
 use std::rc::Rc;
 
-use anyhow::Result;
 use ash::{
     extensions,
     vk::{self, FormatFeatureFlags, QueueFlags},
 };
+
+use crate::utils::Result;
 
 use super::{RendererDevice, RendererWindow, ScopImage};
 

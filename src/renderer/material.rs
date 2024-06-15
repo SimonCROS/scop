@@ -1,9 +1,8 @@
 use std::rc::Rc;
 
-use anyhow::{Ok, Result};
 use ash::vk::{self};
 
-use crate::renderer::{Renderer, RendererPipeline, ScopDescriptorSetLayout, Shader};
+use crate::{renderer::{Renderer, RendererPipeline, ScopDescriptorSetLayout, Shader}, utils::Result};
 
 use super::ScopDescriptorWriter;
 

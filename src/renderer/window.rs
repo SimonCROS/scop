@@ -1,4 +1,3 @@
-use anyhow::Result;
 use ash::{extensions::khr, vk};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::{
@@ -8,6 +7,8 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use winit_input_helper::WinitInputHelper;
+
+use crate::{bail, utils::Result};
 
 pub struct RendererWindow {
     pub event_loop: Option<EventLoop<()>>,
@@ -57,7 +58,7 @@ impl RendererWindow {
     pub fn capabilities(
         &self,
         physical_device: vk::PhysicalDevice,
-    ) -> Result<vk::SurfaceCapabilitiesKHR, vk::Result> {
+    ) -> core::result::Result<vk::SurfaceCapabilitiesKHR, vk::Result> {
         unsafe {
             self.surface_loader
                 .get_physical_device_surface_capabilities(physical_device, self.surface)
@@ -67,7 +68,7 @@ impl RendererWindow {
     pub fn formats(
         &self,
         physical_device: vk::PhysicalDevice,
-    ) -> Result<Vec<vk::SurfaceFormatKHR>, vk::Result> {
+    ) -> core::result::Result<Vec<vk::SurfaceFormatKHR>, vk::Result> {
         unsafe {
             self.surface_loader
                 .get_physical_device_surface_formats(physical_device, self.surface)
@@ -76,7 +77,7 @@ impl RendererWindow {
 
     pub fn acquire_event_loop(&mut self) -> Result<winit::event_loop::EventLoop<()>> {
         match self.event_loop.take() {
-            None => anyhow::bail!("EventLoop was acquired before"),
+            None => bail!("EventLoop was acquired before"),
             Some(el) => Ok(el),
         }
     }

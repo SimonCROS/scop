@@ -3,14 +3,17 @@ use std::{
     rc::Rc,
 };
 
-use anyhow::{ensure, Context, Ok, Result};
 use ash::vk::{
     self, BufferUsageFlags, CommandBuffer, MemoryPropertyFlags, VertexInputAttributeDescription,
     VertexInputBindingDescription, WHOLE_SIZE,
 };
 use math::{Vec2, Vec3};
 
-use crate::renderer::{RendererDevice, ScopBuffer};
+use crate::{
+    ensure,
+    renderer::{RendererDevice, ScopBuffer},
+    utils::{Context, Result},
+};
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Vertex {
@@ -160,7 +163,7 @@ impl<'a> MeshBuilder<'a> {
         let vertices_count = vertices.len();
         let indices_count = self.indices.map_or(0, |i| i.len());
 
-        ensure!(vertices_count > 3, "Vertices count must greater than 3");
+        ensure!(vertices_count >= 3, "Vertices count must greater or equal to than 3");
         ensure!(
             indices_count % 3 == 0,
             "Indices count must be a multiple of 3"
@@ -182,21 +185,24 @@ impl<'a> MeshBuilder<'a> {
         vertex_buffer.write_to_buffer(&vertices, 0);
         vertex_buffer.unmap();
 
-        let index_buffer = self.indices.filter(|i| !i.is_empty()).map_or(Ok(None), |indices| {
-            let mut index_buffer = ScopBuffer::new(
-                self.device.clone(),
-                indices_count,
-                size_of::<u32>() as vk::DeviceSize,
-                BufferUsageFlags::INDEX_BUFFER,
-                MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
-                1,
-            )?;
-            index_buffer.map(WHOLE_SIZE, 0)?;
-            index_buffer.write_to_buffer(&indices, 0);
-            index_buffer.unmap();
+        let index_buffer = self.indices.filter(|i| !i.is_empty()).map_or(
+            Result::<Option<ScopBuffer>>::Ok(None),
+            |indices| {
+                let mut index_buffer = ScopBuffer::new(
+                    self.device.clone(),
+                    indices_count,
+                    size_of::<u32>() as vk::DeviceSize,
+                    BufferUsageFlags::INDEX_BUFFER,
+                    MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
+                    1,
+                )?;
+                index_buffer.map(WHOLE_SIZE, 0)?;
+                index_buffer.write_to_buffer(&indices, 0);
+                index_buffer.unmap();
 
-            Ok(Some(index_buffer))
-        })?;
+                Ok(Some(index_buffer))
+            },
+        )?;
 
         Ok(Mesh {
             device: self.device,

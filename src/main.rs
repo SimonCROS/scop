@@ -8,8 +8,8 @@ mod utils;
 
 use std::env;
 
-use anyhow::Result;
 use app::{custom::AppCustom, objects::AppObjects, samourai::AppSamourai};
+use utils::Result;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();

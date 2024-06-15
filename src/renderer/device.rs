@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-use anyhow::{bail, Context, Ok, Result};
 use ash::{
     prelude::VkResult,
     vk::{
@@ -9,6 +8,8 @@ use ash::{
     },
     Instance,
 };
+
+use crate::{bail, utils::{Context, Result}};
 
 pub type QueueFamilyId = usize;
 

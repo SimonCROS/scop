@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
-use anyhow::{Ok, Result};
 use ash::vk::{self, CommandPoolCreateFlags};
+
+use crate::utils::Result;
 
 use super::{QueueFamily, QueueFamilyId, RendererDevice};
 

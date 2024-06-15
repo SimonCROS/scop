@@ -4,10 +4,9 @@ use std::{
     mem::size_of,
 };
 
-use anyhow::{ensure, Result};
 use ash::vk;
 
-use crate::{engine::Engine, renderer::ScopTexture2D};
+use crate::{engine::Engine, ensure, renderer::ScopTexture2D, utils::Result};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(packed)]

@@ -7,13 +7,12 @@ mod transform;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use anyhow::Result;
 use camera::Camera;
 pub use game_object::*;
 pub use transform::*;
 use winit_input_helper::WinitInputHelper;
 
-use crate::renderer::{Renderer, RendererWindow};
+use crate::{renderer::{Renderer, RendererWindow}, utils::Result};
 
 pub type GameObjectId = u32;
 

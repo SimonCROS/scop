@@ -10,8 +10,6 @@ path = "src/math/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.75"
-
 ash = "0.37.3"
 raw-window-handle = "0.5"
 ash-window = "0.12.0"

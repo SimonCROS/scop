@@ -4,15 +4,16 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
 
-use anyhow::{bail, ensure, Context, Result};
 use math::{Vec2, Vec3};
 
 use crate::engine::mesh::{Mesh, Vertex};
 use crate::engine::Engine;
+use crate::{bail, ensure};
+use crate::utils::{Context, Result};
 
 fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&'a str>> {
     if line.starts_with(prefix) {
-        ensure!(line.len() >= prefix.len() + 1); // Prefix size + not empty
+        ensure!(line.len() >= prefix.len() + 1, "Prefix has no value"); // Prefix size + not empty
         return Ok(Some(&line[prefix.len()..]));
     }
 

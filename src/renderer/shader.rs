@@ -1,7 +1,8 @@
 use std::ffi;
 
-use anyhow::Result;
 use ash::vk;
+
+use crate::utils::Result;
 
 use super::RendererDevice;
 

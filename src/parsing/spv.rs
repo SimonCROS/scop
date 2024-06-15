@@ -4,10 +4,9 @@ use std::{
     mem::size_of,
 };
 
-use anyhow::{ensure, Result};
 use ash::vk;
 
-use crate::{engine::Engine, renderer::Shader};
+use crate::{engine::Engine, ensure, renderer::Shader, utils::Result};
 
 fn read_spv_file(path: &str) -> Result<Vec<u32>> {
     let mut f = File::open(&path)?;
