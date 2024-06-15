@@ -182,7 +182,7 @@ impl<'a> MeshBuilder<'a> {
         vertex_buffer.write_to_buffer(&vertices, 0);
         vertex_buffer.unmap();
 
-        let index_buffer = self.indices.map_or(Ok(None), |indices| {
+        let index_buffer = self.indices.filter(|i| !i.is_empty()).map_or(Ok(None), |indices| {
             let mut index_buffer = ScopBuffer::new(
                 self.device.clone(),
                 indices_count,
