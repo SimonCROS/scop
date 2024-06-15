@@ -86,7 +86,7 @@ impl AppCustom {
         let aspect = engine.renderer.window.window.inner_size().width as f32
             / engine.renderer.window.window.inner_size().height as f32;
         camera.set_perspective_projection(60.0, aspect, 1.0, 100.0);
-        camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::default(), Vec3::up());
+        camera.set_view_target([0.0, 0.0, 20.0].into(), Vec3::default(), Vec3::up());
         
         engine.run(&camera, |engine, input, _image_index| {
             let mut movement = Vec3::default();
