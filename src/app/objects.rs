@@ -17,36 +17,38 @@ pub struct AppObjects {
 }
 
 impl AppObjects {
-    pub fn start(&mut self, engine: &mut Engine) -> Result<()> {
+    pub fn start(&mut self) -> Result<()> {
+        let mut engine = Engine::new()?;
+
         // --------------------
         // Meshs
         // --------------------
 
-        let mesh_sphere = read_obj_file(engine, "./resources/sphere.obj")?;
+        let mesh_sphere = read_obj_file(&engine, "./resources/sphere.obj")?;
 
-        let mesh_42 = read_obj_file(engine, "./resources/42.obj")?;
+        let mesh_42 = read_obj_file(&engine, "./resources/42.obj")?;
 
-        let mesh_teapot_1 = read_obj_file(engine, "./resources/teapot.obj")?;
+        let mesh_teapot_1 = read_obj_file(&engine, "./resources/teapot.obj")?;
 
-        let mesh_teapot_2 = read_obj_file(engine, "./resources/teapot2.obj")?;
+        let mesh_teapot_2 = read_obj_file(&engine, "./resources/teapot2.obj")?;
 
         // --------------------
         // Textures
         // --------------------
 
-        let mut texture_earth = read_tga_r8g8b8a8_srgb_file(engine, "./textures/earth.tga")?;
+        let mut texture_earth = read_tga_r8g8b8a8_srgb_file(&engine, "./textures/earth.tga")?;
 
-        let mut texture_mars = read_tga_r8g8b8a8_srgb_file(engine, "./textures/mars.tga")?;
+        let mut texture_mars = read_tga_r8g8b8a8_srgb_file(&engine, "./textures/mars.tga")?;
 
-        let mut texture_ponies = read_tga_r8g8b8a8_srgb_file(engine, "./textures/ponies.tga")?;
+        let mut texture_ponies = read_tga_r8g8b8a8_srgb_file(&engine, "./textures/ponies.tga")?;
 
         // --------------------
         // Shaders
         // --------------------
 
-        let vert_shader = read_vert_spv_file(engine, "./shaders/default.vert.spv")?;
+        let vert_shader = read_vert_spv_file(&engine, "./shaders/default.vert.spv")?;
 
-        let frag_shader = read_frag_spv_file(engine, "./shaders/default.frag.spv")?;
+        let frag_shader = read_frag_spv_file(&engine, "./shaders/default.frag.spv")?;
 
         // --------------------
         // Materials
@@ -89,7 +91,7 @@ impl AppObjects {
         // GameObjects
         // --------------------
 
-        let go = GameObject::builder(engine)
+        let go = GameObject::builder(&mut engine)
             .name("Earth")
             .mesh(mesh_sphere.clone())
             .material(material_instance_earth.clone())
@@ -100,7 +102,7 @@ impl AppObjects {
             .build();
         go.borrow_mut().transform.translation = Vec3::from([7., -7., 0.]);
 
-        let go = GameObject::builder(engine)
+        let go = GameObject::builder(&mut engine)
             .name("Mars")
             .mesh(mesh_sphere.clone())
             .material(material_instance_mars.clone())
@@ -111,20 +113,20 @@ impl AppObjects {
             .build();
         go.borrow_mut().transform.translation = Vec3::from([-7., -7., 0.]);
 
-        let go = GameObject::builder(engine)
+        let go = GameObject::builder(&mut engine)
             .name("42")
             .mesh(mesh_42.clone())
             .material(material_instance_ponies.clone())
             .transform(Transform {
                 pivot: mesh_42.bounding_box.get_middle_point(),
                 scale: Vec3::one() * 2.5,
-                rotation: Vec3::up() * std::f32::consts::PI / 2.,
+                rotation: Vec3::up() * std::f32::consts::PI * 1.5,
                 ..Default::default()
             })
             .build();
         go.borrow_mut().transform.translation = Vec3::from([0., 0., 0.]);
 
-        let go = GameObject::builder(engine)
+        let go = GameObject::builder(&mut engine)
             .name("Teapot 1")
             .mesh(mesh_teapot_1.clone())
             .material(material_instance_ponies.clone())
@@ -135,7 +137,7 @@ impl AppObjects {
             .build();
         go.borrow_mut().transform.translation = Vec3::from([7., 7., 0.]);
 
-        let go = GameObject::builder(engine)
+        let go = GameObject::builder(&mut engine)
             .name("Teapot 2")
             .mesh(mesh_teapot_2.clone())
             .material(material_instance_ponies.clone())

@@ -10,32 +10,27 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct AppSamourai {
+pub struct AppCustom {
+    last_frame_move: u32,
     texture_target_fade: f32,
     texture_change_frame: u32,
 }
 
-impl AppSamourai {
-    pub fn start(&mut self) -> Result<()> {
+impl AppCustom {
+    pub fn start<'a>(&mut self, path: &'a str) -> Result<()> {
         let mut engine = Engine::new()?;
 
         // --------------------
         // Meshs
         // --------------------
 
-        let mesh_samourai = read_obj_file(&engine, "./resources/samourai2.obj")?;
-
-        let mesh_socle = read_obj_file(&engine, "./resources/socle_samourai.obj")?;
-
-        let mesh_katana = read_obj_file(&engine, "./resources/katana.obj")?;
+        let mesh_custom = read_obj_file(&engine, path)?;
 
         // --------------------
         // Textures
         // --------------------
 
-        let mut texture_samourai = read_tga_r8g8b8a8_srgb_file(&engine, "./textures/samourai.tga")?;
-
-        let mut texture_katana = read_tga_r8g8b8a8_srgb_file(&engine, "./textures/katana.tga")?;
+        let mut texture_ponies = read_tga_r8g8b8a8_srgb_file(&engine, "./textures/ponies.tga")?;
 
         // --------------------
         // Shaders
@@ -61,41 +56,27 @@ impl AppSamourai {
         // Material instances
         // --------------------
 
-        let material_instance_samourai =
+        let material_instance_ponies =
             MaterialInstance::instanciate(&engine.renderer, material.clone())?;
-        material_instance_samourai
+        material_instance_ponies
             .writer(0)
-            .set_texture2d(0, &texture_samourai)
-            .write();
-
-        let material_instance_katana =
-            MaterialInstance::instanciate(&engine.renderer, material.clone())?;
-        material_instance_katana
-            .writer(0)
-            .set_texture2d(0, &texture_katana)
+            .set_texture2d(0, &texture_ponies)
             .write();
 
         // --------------------
         // GameObjects
         // --------------------
 
-        GameObject::builder(&mut engine)
-            .name("Samourai")
-            .mesh(mesh_samourai.clone())
-            .material(material_instance_samourai.clone())
+        let go = GameObject::builder(&mut engine)
+            .name("Custom")
+            .mesh(mesh_custom.clone())
+            .transform(Transform {
+                pivot: mesh_custom.bounding_box.get_middle_point(),
+                ..Default::default()
+            })
+            .material(material_instance_ponies.clone())
             .build();
-
-        GameObject::builder(&mut engine)
-            .name("Socle Samourai")
-            .mesh(mesh_socle.clone())
-            .material(material_instance_samourai.clone())
-            .build();
-
-        GameObject::builder(&mut engine)
-            .name("Katana")
-            .mesh(mesh_katana.clone())
-            .material(material_instance_katana.clone())
-            .build();
+        go.borrow_mut().transform.translation = Vec3::from([0., 0., 0.]);
 
         // --------------------
         // Logic
@@ -105,16 +86,26 @@ impl AppSamourai {
         let aspect = engine.renderer.window.window.inner_size().width as f32
             / engine.renderer.window.window.inner_size().height as f32;
         camera.set_perspective_projection(60.0, aspect, 1.0, 100.0);
-        camera.set_view_direction([0.0, 10.0, 25.0].into(), Vec3::backward(), Vec3::up());
+        camera.set_view_target([0.0, 0.0, -20.0].into(), Vec3::default(), Vec3::up());
         
         engine.run(&camera, |engine, input, _image_index| {
             let mut movement = Vec3::default();
             let mut rotation = Vec3::default();
             if input.key_held_logical(Key::Named(NamedKey::ArrowLeft)) {
                 rotation.y -= 0.02;
+                self.last_frame_move = engine.renderer.frame_count;
             }
             if input.key_held_logical(Key::Named(NamedKey::ArrowRight)) {
                 rotation.y += 0.02;
+                self.last_frame_move = engine.renderer.frame_count;
+            }
+            if input.key_held_logical(Key::Named(NamedKey::ArrowUp)) {
+                rotation.z += 0.02;
+                self.last_frame_move = engine.renderer.frame_count;
+            }
+            if input.key_held_logical(Key::Named(NamedKey::ArrowDown)) {
+                rotation.z -= 0.02;
+                self.last_frame_move = engine.renderer.frame_count;
             }
             if input.key_held(KeyCode::KeyA) {
                 movement.x -= 0.084;
@@ -144,19 +135,17 @@ impl AppSamourai {
                 self.texture_change_frame = engine.renderer.frame_count;
             }
 
+            if self.last_frame_move == 0 || engine.renderer.frame_count - self.last_frame_move > 200
+            {
+                rotation.y += 0.02;
+            }
+
             if engine.renderer.flat_texture_interpolation < self.texture_target_fade {
                 engine.renderer.flat_texture_interpolation =
                     (engine.renderer.flat_texture_interpolation + 0.016).clamp(0., 1.);
             } else if engine.renderer.flat_texture_interpolation > self.texture_target_fade {
                 engine.renderer.flat_texture_interpolation =
                     (engine.renderer.flat_texture_interpolation - 0.016).clamp(0., 1.);
-            }
-
-            if input.key_pressed_logical(Key::Character(&"r")) {
-                engine.game_objects.values_mut().for_each(|e| {
-                    e.borrow_mut().transform = Transform::default();
-                });
-                return;
             }
 
             engine.game_objects.values_mut().for_each(|e| {
@@ -167,8 +156,7 @@ impl AppSamourai {
 
         engine.renderer.wait_gpu();
 
-        texture_samourai.cleanup();
-        texture_katana.cleanup();
+        texture_ponies.cleanup();
 
         engine.game_objects.clear();
 

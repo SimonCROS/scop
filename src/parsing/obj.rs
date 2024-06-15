@@ -19,7 +19,7 @@ fn get_content_of<'a>(line: &'a String, prefix: &'static str) -> Result<Option<&
     Ok(None)
 }
 
-pub fn read_obj_file(engine: &Engine, path: &'static str) -> Result<Rc<Mesh>> {
+pub fn read_obj_file<'a>(engine: &Engine, path: &'a str) -> Result<Rc<Mesh>> {
     let mut object_name = String::new();
     let mut vertices = Vec::<Vertex>::new();
     let mut uvs = Vec::<Vec2>::new();

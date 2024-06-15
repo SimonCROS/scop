@@ -2,10 +2,12 @@ NAME			:= scop
 SHADERS_GLSL	:= shaders/default.vert shaders/default.frag
 SHADERS_SPV		:= shaders/default.vert.spv shaders/default.frag.spv
 
-all: $(NAME)
+all: build $(NAME)
 
-$(NAME): $(SHADERS_SPV)
+build:
 	cargo build
+
+$(NAME): target/debug/scop $(SHADERS_SPV)
 	cp target/debug/scop $(NAME)
 
 clean:

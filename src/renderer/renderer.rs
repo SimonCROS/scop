@@ -92,11 +92,11 @@ impl Renderer {
         let instance = Self::create_instance(&entry, &layers_names, &extension_names)?;
         let instance = Rc::new(instance);
 
-        let window = RendererWindow::new(event_loop, window, &entry, &instance)?;
-
         let debug = if debug_available { Some(RendererDebug::new(&entry, &instance)?) } else { None };
-
+        
         let main_device = Rc::new(RendererDevice::new(&instance)?);
+
+        let window = RendererWindow::new(event_loop, window, &entry, &instance)?;
 
         let swapchain = ScopSwapchain::new(&entry, &instance, main_device.clone(), &window)?;
 
