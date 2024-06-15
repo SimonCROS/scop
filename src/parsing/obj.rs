@@ -144,13 +144,23 @@ pub fn read_obj_file<'a>(engine: &Engine, path: &'a str) -> Result<Rc<Mesh>> {
             continue;
         }
 
-        // if let Some(content) = get_content_of(&line, "mtllib ")? {
-        //     continue;
-        // }
+        if let Some(_content) = get_content_of(&line, "mtllib ")? {
+            continue;
+        }
 
-        // if let Some(content) = get_content_of(&line, "usemtl ")? {
-        //     continue;
-        // }
+        if let Some(_content) = get_content_of(&line, "usemtl ")? {
+            continue;
+        }
+
+        if let Some(_content) = get_content_of(&line, "g ")? {
+            continue;
+        }
+
+        if let Some(_content) = get_content_of(&line, "s ")? {
+            continue;
+        }
+
+        bail!(format!("Unknown key in line `{}`", line))
     }
 
     Mesh::builder(engine.renderer.main_device.clone())

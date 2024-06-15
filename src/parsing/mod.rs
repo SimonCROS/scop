@@ -1,4 +1,3 @@
-mod mtl;
 mod obj;
 mod spv;
 mod tga;
