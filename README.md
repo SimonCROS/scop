@@ -1,22 +1,22 @@
 # scop - 42 Project
 
-First time discovering graphic APIs, using Vulkan.\
-I was also discovering Rust on a structured project.
+This was my first time exploring graphic APIs, using Vulkan. I was also learning Rust within a structured project.
 
-I started a new personal project, in which I will be able to apply what I learned with better structure and more functionality.\
-https://github.com/SimonCROS/scop2
+<!---
+I have initiated a new personal project where I aim to apply my newly acquired knowledge with better structure and more functionality. You can follow my progress here: [scop2](https://github.com/SimonCROS/scop2)
+-->
 
-I will also begin a new graphic project for 42, HumanGL (using OpenGL).
+I will also begin a new graphics project for 42, called HumanGL, which will use OpenGL.
 
-Minimal requirements for the project:
-- No use of external libraries (except for window, window events and graphic API)
+### Minimal Requirements for the Project:
+- No use of external libraries (except for window handling, window events, and the graphics API)
 - Parse basic .obj files
 - Implement vectors and matrices
-- Display a 3D object, rotating around it's middle axis
-- Basically apply a texture (without UV)
-- Be able to move the object on x, y and z axis using keyboard.
+- Display a 3D object rotating around its middle axis
+- Apply a basic texture (without UV mapping)
+- Move the object along the x, y, and z axes using the keyboard
 
-This project allowed me to understand and use:
+### Through this project, I gained an understanding of and practical experience with:
 - Swapchain
 - Command Pools
 - Command Buffers
@@ -27,7 +27,9 @@ This project allowed me to understand and use:
 - Render Passes
 - Descriptors
 - Linear and non-linear color spaces
-- RenderDoc (for debug)
+- RenderDoc (for debugging)
+
+This project has been a significant learning experience, deepening my understanding of graphics programming and Vulkan, while also allowing me to improve my Rust skills.
 
 ---
 
