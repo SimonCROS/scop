@@ -25,7 +25,7 @@ I will also begin a new graphics project for 42, called HumanGL, which will use 
 - Framebuffers
 - Pipelines
 - Render Passes
-- Descriptors
+- Descriptor Sets
 - Linear and non-linear color spaces
 - RenderDoc (for debugging)
 
